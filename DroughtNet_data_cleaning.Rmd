@@ -1,0 +1,82 @@
+---
+title: "DroughtNet data cleaning"
+output: html_notebook
+---
+lead the Durin data set
+
+```{r}
+data <- read_csv("vegetation/DURIN_clean.csv")
+
+```
+
+
+filter the data to droughtNet
+```{r}
+droughtnet_data <- data %>%
+  filter((ageClass == "Pioneer" | ageClass == "Mature") & 
+         (DroughtTrt == "Amb (0)" | DroughtTrt == "Ext (90)"))
+
+```
+
+
+number of plants for each plot, specific for Calluna vulgaris and number of leaves per plant to check if some have leaves exceeding 3
+```{r}
+library(dplyr)
+
+calluna_counts_plots <- droughtnet_data %>%
+  filter(species == "Calluna vulgaris") %>%
+  group_by(DroughNet_plotID) %>%
+  summarise(count = n())
+
+calluna_leaves_per_plant <- droughtnet_data %>%
+  filter(species == "Calluna vulgaris") %>%
+  group_by(DroughNet_plotID, plant_nr) %>%
+  summarise(total_leaves = sum(leaf_nr, na.rm = TRUE))
+
+```
+missing shoot type for calluna vulgaris 
+```{r}
+
+missing_shoot_calluna_R <- droughtnet_data %>%
+  filter(species == "Calluna vulgaris" & !(calluna_shoot_type %in% c("short shoot", "long shoot")))
+
+
+```
+
+
+check for multiple heights in Calluna vulgaris
+```{r}
+plants_multiple_heights <- droughtnet_data %>%
+  filter(species == "Callina vulgaris") %>%
+group_by(envelope_ID) %>%
+  mutate(number_unique_heights = n_distinct(height))
+  filter(number_unique_heights>1)
+
+```
+
+
+check for missing Drought treament
+```{r}
+
+drought_treatment_missing <- droughtnet_data %>%
+  filter(!(DroughtTrt %in% c("Ext (90)", "Amb (0)")))
+
+```
+
+ 
+rows missing age class in the data set
+```{r}
+
+ageClass_missing <- droughtnet_data %>%
+  filter(is.na(ageClass))
+
+```
+
+does the treatment match with the DroughtNet_plotID( to check if the treatment is unique for a single plot)
+```{r}
+
+treatment_vs_droughtNet_plotID <- table(droughtnet_data$DroughNet_plotID, droughtnet_data$DroughtTrt)
+
+```
+
+
