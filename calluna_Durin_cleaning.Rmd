@@ -1,0 +1,38 @@
+---
+title: "Calluna data cleaning"
+output: html_notebook
+---
+
+
+Load the Durin + DroughtNet data
+
+```{r}
+data <- read_csv("vegetation/DURIN_clean.csv")
+
+```
+
+filter the data to Durin plots only
+```{r}
+durin  <-data %>% filter(DURIN_plot, habitat)
+```
+
+
+species count (number of Calluna plants) per plot
+```{r}
+species_count_plot <- durin %>%
+  filter(species == "Calluna vulgaris") %>%
+  group_by(DURIN_plot) %>%
+  summarise(number_plants = n())
+```
+
+
+check if species(CV) have multiple heights,
+group by the plant identifier, count the unique heights, and then keep only plants with more than one height
+```{r}
+library(dplyr)
+plants_multiple_heights <- durin %>%
+  filter(species == "Callina vulgaris") %>%
+group_by(envelope_ID) %>%
+  mutate(number_unique_heights = n_distinct(height))
+  filter(number_unique_heights>1)
+```
