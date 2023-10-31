@@ -19,7 +19,7 @@ Filter data for species "Calluna vulgaris"
 ```{r}
 calluna_data <- filter(data, species == "Calluna vulgaris" & siteID %in% c("Lygra", "Sogndal", "Senja"))
 view(calluna_data)
-```
+ ```
 
 ```{r}
 # Count the number of "Calluna vulgaris" plants per site
@@ -28,6 +28,8 @@ view(calluna_data)
   group_by(siteID) %>%
   summarise(count = n()))
 ```
+
+
 
 species count (number of Calluna plants) per plot
 ```{r}
@@ -41,8 +43,17 @@ count_per_plot <- calluna_data %>%
   summarise(count = n())
 view(count_per_plot)
 
+#Step 2: Extract the envelope_ID values for plants in the "0.0" plot
+envelopes_in_zero_plot <- calluna_data %>%
+  filter(DroughNet_plotID == "0.0") %>%
+  select(envelope_ID) %>%
+  distinct()
+
+# Display the envelope_IDs associated with DroughNet_plotID '0.0'
+view(envelopes_in_zero_plot)
 ```
 
+no plots assigned
 ```{r}
 
 # Count plants with no plots assigned
@@ -54,12 +65,10 @@ no_plot_count <- calluna_data %>%
 # Combine the results
 combined_results <- bind_rows(count_durin_plot, count_droughnet_plot, no_plot_count)
 
-# Display the combined results
 view(combined_results)
 
 ```
 
-no plots assigned
 ```{r}
 # Filter out all entries where both DURIN_plot and DroughNet_plotID are not assigned
 no_plots_assigned_by_envelope <- calluna_data %>%
@@ -70,6 +79,19 @@ no_plots_assigned_by_envelope <- calluna_data %>%
 view(no_plots_assigned_by_envelope)
 ```
 #24 plants do not have plot assigned
+#solution- did a crosscheck with the main data set, all of them belong to phys
+
+```{r}
+# Filter entries where DroughNet_plotID is '0.0'
+envelopes_in_zero_plot <- calluna_data %>%
+  filter(DroughNet_plotID == "0.0") %>%
+  select(envelope_ID) %>%
+  distinct()
+
+# Display the envelope_IDs associated with DroughNet_plotID '0.0'
+view(envelopes_in_zero_plot)
+```
+
 
 check multiple heights for calluna vulgaris
 ```{r}
@@ -94,6 +116,7 @@ calluna_missing_heights <- calluna_data %>%
 view(calluna_missing_heights %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, plant_height))
 ```
 #29 calluna missing height
+#solution-did a cross check with main data set, all belong to phys
 
 missing shoot type
 ```{r}
@@ -102,8 +125,7 @@ missing_shoot_type<- calluna_data %>%
 
 view(missing_shoot_type %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, calluna_shoot_type))
 ```
-#Could you please review this code? Instead of filtering out entries without a shoot type, the resulting table seems to have a mix of both entries with and without shoot types, tried
-
+#Could you please review this code? Instead of filtering out entries without a shoot type, the resulting table seems to have a mix of both entries with and without shoot types, dont know where am missing out in this
 
 
 
