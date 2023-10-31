@@ -4,7 +4,7 @@ output: html_notebook
 ---
 
 
-Load the Durin + DroughtNet data
+Load the Durin + DroughtNet data.
 
 ```{r}
 data <- read_csv("vegetation/DURIN_clean.csv")
