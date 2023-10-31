@@ -4,35 +4,110 @@ output: html_notebook
 ---
 
 
-Load the Durin + DroughtNet data.
+Load the Data.,
 
 ```{r}
-data <- read_csv("vegetation/DURIN_clean.csv")
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(readr)
 
+data <- read_csv("DURIN_clean.csv")
+View(data)
 ```
-
-filter the data to Durin plots only
+Filter data for species "Calluna vulgaris"
 ```{r}
-durin  <-data %>% filter(DURIN_plot, habitat)
+calluna_data <- filter(data, species == "Calluna vulgaris" & siteID %in% c("Lygra", "Sogndal", "Senja"))
+view(calluna_data)
 ```
 
+```{r}
+# Count the number of "Calluna vulgaris" plants per site
+(plant_count_per_site <- calluna_data %>%
+  filter(siteID %in% c("Lygra", "Sogndal", "Senja")) %>%
+  group_by(siteID) %>%
+  summarise(count = n()))
+```
 
 species count (number of Calluna plants) per plot
 ```{r}
-species_count_plot <- durin %>%
-  filter(species == "Calluna vulgaris") %>%
+count_per_plot <- calluna_data %>%
   group_by(DURIN_plot) %>%
-  summarise(number_plants = n())
+  summarise(count = n())
+view(count_per_plot)
+
+count_per_plot <- calluna_data %>%
+  group_by(DroughNet_plotID) %>%
+  summarise(count = n())
+view(count_per_plot)
+
+```
+
+```{r}
+
+# Count plants with no plots assigned
+no_plot_count <- calluna_data %>%
+  filter(is.na(DURIN_plot) & is.na(DroughNet_plotID)) %>%
+  summarise(count = n()) %>%
+  mutate(plot_type = "No Plot Assigned", plot = "No Plot Assigned")
+
+# Combine the results
+combined_results <- bind_rows(count_durin_plot, count_droughnet_plot, no_plot_count)
+
+# Display the combined results
+view(combined_results)
+
+```
+
+no plots assigned
+```{r}
+# Filter out all entries where both DURIN_plot and DroughNet_plotID are not assigned
+no_plots_assigned_by_envelope <- calluna_data %>%
+  filter(is.na(DURIN_plot) & is.na(DroughNet_plotID)) %>%
+  select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID)
+
+# Display the filtered data
+view(no_plots_assigned_by_envelope)
+```
+#24 plants do not have plot assigned
+
+check multiple heights for calluna vulgaris
+```{r}
+
+leaf_multiple_heights <- calluna_data %>%
+  group_by(envelope_ID) %>%
+  filter(n_distinct(plant_height) > 1) %>% # filter plants with multiple heights
+  ungroup()
+
+# Display the plants with multiple heights with the specified columns
+view(leaf_multiple_heights %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, plant_height))
+```
+# no plants with multipple heights (not sure if the problem is my code, since you already traced some with multiple heights)
+
+plants with missing heights
+```{r}
+# Filter data for the three sites and missing heights
+calluna_missing_heights <- calluna_data %>%
+  filter(siteID %in% c("Lygra", "Sogndal", "Senja"), is.na(plant_height))
+
+# Display the plants with missing heights
+view(calluna_missing_heights %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, plant_height))
+```
+#29 calluna missing height
+
+missing shoot type
+```{r}
+missing_shoot_type<- calluna_data %>%
+  filter(!calluna_shoot_type %in% c("Short", "Long"))
+
+view(missing_shoot_type %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, calluna_shoot_type))
+```
+#Could you please review this code? Instead of filtering out entries without a shoot type, the resulting table seems to have a mix of both entries with and without shoot types, tried
+
+
+
+
 ```
 
 
-check if species(CV) have multiple heights,
-group by the plant identifier, count the unique heights, and then keep only plants with more than one height
-```{r}
-library(dplyr)
-plants_multiple_heights <- durin %>%
-  filter(species == "Callina vulgaris") %>%
-group_by(envelope_ID) %>%
-  mutate(number_unique_heights = n_distinct(height))
-  filter(number_unique_heights>1)
 ```
