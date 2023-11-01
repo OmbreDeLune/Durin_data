@@ -2,81 +2,213 @@
 title: "DroughtNet data cleaning"
 output: html_notebook
 ---
-lead the Durin data set
+
+load the Durin data set
 
 ```{r}
-data <- read_csv("vegetation/DURIN_clean.csv")
+library(tidyverse)
+library(dplyr)
+library(readr)
 
+data <- read_csv("DURIN_clean.csv")
+view(data)
 ```
 
+filter to DroughtNet
 
-filter the data to droughtNet
 ```{r}
-droughtnet_data <- data %>%
+(droughtnet_data <- data %>%
   filter((ageClass == "Pioneer" | ageClass == "Mature") & 
-         (DroughtTrt == "Amb (0)" | DroughtTrt == "Ext (90)"))
+         (DroughtTrt == "Amb (0)" | DroughtTrt == "Ext (90)")))
+view(droughtnet_data)
+```
+
+plant count per site
+
+```{r}
+#Count the number of plants per site
+(plant_count_per_site <- droughtnet_data %>%
+  group_by(siteID) %>%
+  summarise(plant_count = n()))
 
 ```
 
-
-number of plants for each plot, specific for Calluna vulgaris and number of leaves per plant to check if some have leaves exceeding 3
 ```{r}
+# Calculate the number of unique species per plot in each site
+(species_count_per_plot_site <- droughtnet_data %>%
+  group_by(siteID, DroughNet_plotID) %>%
+  summarise(unique_species_count = n_distinct(species)))
+view(species_count_per_plot_site)
+
+# Calculate the total number of leaves for each species in both sites
+(count_per_species <- droughtnet_data %>%
+  group_by(siteID, species) %>%
+  summarise(total_leaves = sum(leaf_nr, na.rm = TRUE)))
+```
+
+```{r}
+#check for missing Drought treament
+# Extract envelope_ID values with missing DroughtTrt
+(envelopes_missing_droughttrt <- droughtnet_data %>%
+  filter(is.na(DroughtTrt)) %>%
+  pull(envelope_ID) %>%
+  unique())
+# 0 missing drought treatment
+
+##does the treatment match with the DroughtNet_plotID( to check if the treatment is unique to a single plot
+
+# Group by DroughNet_plotID and siteID, then count unique DroughtTrt values
+treatment_uniqueness <- droughtnet_data %>%
+  group_by(DroughNet_plotID, siteID) %>%
+  summarise(unique_treatments = n_distinct(DroughtTrt))
+
+# Check if any group has more than one unique treatment
+(non_unique_treatments <- treatment_uniqueness %>%
+  filter(unique_treatments > 1))
+#found that 1.2 Tjøtta, 1.3 Tjøtta 2.2 Tjøtta, 2.1 Lgyra have more than one unique treatment
+
+# Extract rows from the droughtnet dataset based on non-unique treatments
+non_unique_treatment_rows <- droughtnet_data %>%
+  semi_join(non_unique_treatments, by = c("DroughNet_plotID", "siteID")) %>%
+  select(envelope_ID, species, DroughNet_plotID, DroughtTrt, siteID)
+# Display the extracted rows
+view(non_unique_treatment_rows)
+
+# Filter for only Lygra's 2.1 plot from non_unique_treatment_rows
+lygra_2_1_rows <- non_unique_treatment_rows %>%
+    filter(siteID == "Lygra" & DroughNet_plotID == "2.1")
+view(lygra_2_1_rows)
+# AEG7270 has Amb(0) treatment, the rest are extreme
+
+# Filter for only Tjøtta's 2.2 plot from non_unique_treatment_rows
+tjøtta_2_2_rows <- non_unique_treatment_rows %>%
+    filter(siteID == "Tjøtta" & DroughNet_plotID == "2.2")
+view(tjøtta_2_2_rows)
+# EEN3300 has Amb(0) treatment, the rest are extreme
+
+# Filter for only Tjøtta's 1.3 plot from non_unique_treatment_rows
+tjøtta_1_3_rows <- non_unique_treatment_rows %>%
+    filter(siteID == "Tjøtta" & DroughNet_plotID == "1.3")
+view(tjøtta_1_3_rows)
+# verify again when checking age class seems 1.3 plot is found in both pioneer and mature stages
+
+# Filter for only Tjøtta's 1.2 plot from non_unique_treatment_rows
+tjøtta_1_2_rows <- non_unique_treatment_rows %>%
+    filter(siteID == "Tjøtta" & DroughNet_plotID == "1.2")
+view(tjøtta_1_2_rows)
+#check again later, seems 1.2 is both in pioneer and mature hence more than 1 unique treatment
+
+```
+
+```{r}
+#rows missing age class in the data set
+ageClass_missing <- droughtnet_data %>%
+  filter(is.na(ageClass)) %>%
+  select(envelope_ID, ageClass)
+view(ageClass_missing)
+#no envelope ids with missing ageClass
+```
+
+```{r}
+#number of leaves per plant
+# Filter the data for the four species and both sites, then count envelope_IDs per plant_nr
+# Load necessary libraries
 library(dplyr)
 
-calluna_counts_plots <- droughtnet_data %>%
-  filter(species == "Calluna vulgaris") %>%
-  group_by(DroughNet_plotID) %>%
-  summarise(count = n())
+# Filter the data for the specified species and sites, then count envelope_IDs per plant_nr
+envelope_counts <- droughtnet_data %>%
+  filter(species %in% c("Vaccinium myrtillus", "Empetrum nigrum", "Vaccinium vitis_idaea", "Calluna vulgaris"), 
+         siteID %in% c("Lygra", "Tjøtta")) %>%  
+  group_by(species, siteID, DroughNet_plotID, plant_nr) %>%
+  summarise(envelope_count = n_distinct(envelope_ID))
 
-calluna_leaves_per_plant <- droughtnet_data %>%
-  filter(species == "Calluna vulgaris") %>%
-  group_by(DroughNet_plotID, plant_nr) %>%
-  summarise(total_leaves = sum(leaf_nr, na.rm = TRUE))
-
+# Display plants that don't have exactly 3 envelope_IDs
+incorrect_envelope_counts <- envelope_counts %>%
+  filter(envelope_count != 3)
+view(incorrect_envelope_counts)
+#some have less while others have more than the expected number
 ```
-missing shoot type for calluna vulgaris 
+
 ```{r}
+# expected envelope count based on species
+# Filter the data for the specified species and sites, then count envelope_IDs per plant_nr
+envelope_counts <- droughtnet_data %>%
+  filter(species %in% c("Vaccinium myrtillus", "Empetrum nigrum", "Vaccinium vitis_idaea", "Calluna vulgaris"), 
+         siteID %in% c("Lygra", "Tjøtta")) %>%  
+  group_by(species, siteID, ageClass, DroughNet_plotID, plant_nr) %>%
+  summarise(envelope_count = n_distinct(envelope_ID)) %>%
+  mutate(expected_count = case_when(
+    species == "Vaccinium myrtillus" ~ 3,
+    species %in% c("Vaccinium vitis_idaea", "Empetrum nigrum", "Calluna vulgaris") ~ 6,
+    TRUE ~ NA_integer_
+  ))
+# Display plants that don't have the expected number of envelope_IDs
+incorrect_envelope_counts <- envelope_counts %>%
+  filter(envelope_count != expected_count)
 
-missing_shoot_calluna_R <- droughtnet_data %>%
-  filter(species == "Calluna vulgaris" & !(calluna_shoot_type %in% c("short shoot", "long shoot")))
+view(incorrect_envelope_counts)
 
 
 ```
 
-
-check for multiple heights in Calluna vulgaris
 ```{r}
-plants_multiple_heights <- droughtnet_data %>%
-  filter(species == "Callina vulgaris") %>%
-group_by(envelope_ID) %>%
-  mutate(number_unique_heights = n_distinct(height))
-  filter(number_unique_heights>1)
-
+#to check number of leaves per plant
+# Filter the data for the specified species and sites, then gather envelope_IDs per plant_nr
+envelope_details <- droughtnet_data %>%
+  filter(species %in% c("Vaccinium myrtillus", "Empetrum nigrum", "Vaccinium vitis_idaea", "Calluna vulgaris"), 
+         siteID %in% c("Lygra", "Tjøtta")) %>%  
+  group_by(species, siteID, DroughNet_plotID, plant_nr, ageClass) %>%
+  summarise(
+    envelope_count = n_distinct(envelope_ID),
+    envelope_ids = list(envelope_ID)
+  ) %>%
+  mutate(expected_count = case_when(
+    species == "Vaccinium myrtillus" ~ 3,
+    species %in% c("Vaccinium vitis_idaea", "Empetrum nigrum", "Calluna vulgaris") ~ 6,
+    TRUE ~ NA_integer_
+  ))
+# Display plants that don't have the expected number of envelope_IDs and their associated envelope_IDs
+(incorrect_envelope_details <- envelope_details %>%
+  filter(envelope_count != expected_count))
+view(incorrect_envelope_details)
+#found quite a good number of plants that have less or more than the expected count of leaves
 ```
 
+checking for multiple heights in Calluna vulgaris specifically Lygra
+    ```{r}
+    # Filter for Calluna vulgaris, group by plant_nr and plant_height, and gather envelope_IDs
+    calluna_heights_and_envelopes <- droughtnet_data %>%
+      filter(species == "Calluna vulgaris", siteID == "Lygra") %>%  
+      group_by(siteID, DroughNet_plotID, plant_nr, plant_height) %>%
+      summarise(
+        envelope_count = n(),
+        envelope_ids = list(envelope_ID)
+      )
 
-check for missing Drought treament
+    # Filter to only include rows where there's more than one height for the same plant
+    multiple_heights_calluna <- calluna_heights_and_envelopes %>%
+      group_by(siteID, DroughNet_plotID, plant_nr) %>%
+      filter(n() > 1) %>%
+      ungroup()
+    view(multiple_heights_calluna)
+
+    expanded_calluna <- multiple_heights_calluna %>% #expanded the envelope_ID collumn to display all the barcodes
+      unnest(envelope_ids)
+    view(expanded_calluna)
+    # a good number of the plants with multiple heights
+    # solution plot 1.2, plant 1, 6 envelopes same height, the BOA from phys had NA, plant 2, 6 envelopes same height, the 7 the one, BNS from phys, 3.3 6 envelopes same height, the 7th BOJ2452- phys
+    ```
+
+checking calluna short or long shoot type
 ```{r}
+# Get unique values of calluna_shoot_type for "Calluna vulgaris" in "Lygra"
+unique_values <- droughtnet_data %>%
+  filter(species == "Calluna vulgaris", siteID == "Lygra") %>%
+  pull(calluna_shoot_type) %>%
+  unique()
 
-drought_treatment_missing <- droughtnet_data %>%
-  filter(!(DroughtTrt %in% c("Ext (90)", "Amb (0)")))
-
+print(unique_values)
+# tried all ways i could think of to filter missing shoot type rows, but all the codes retains the rows with a mix of both
+#only this gave me NA ??????
 ```
-
- 
-rows missing age class in the data set
-```{r}
-
-ageClass_missing <- droughtnet_data %>%
-  filter(is.na(ageClass))
-
-```
-
-does the treatment match with the DroughtNet_plotID( to check if the treatment is unique for a single plot)
-```{r}
-
-treatment_vs_droughtNet_plotID <- table(droughtnet_data$DroughNet_plotID, droughtnet_data$DroughtTrt)
-
-```
-
 
