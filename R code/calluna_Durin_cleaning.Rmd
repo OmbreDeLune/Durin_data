@@ -14,22 +14,19 @@ library(readr)
 
 data <- read_csv("DURIN_clean.csv")
 View(data)
+
 ```
 Filter data for species "Calluna vulgaris"
 ```{r}
 calluna_data <- filter(data, species == "Calluna vulgaris" & siteID %in% c("Lygra", "Sogndal", "Senja"))
 view(calluna_data)
  ```
-
-```{r}
 # Count the number of "Calluna vulgaris" plants per site
 (plant_count_per_site <- calluna_data %>%
   filter(siteID %in% c("Lygra", "Sogndal", "Senja")) %>%
   group_by(siteID) %>%
   summarise(count = n()))
 ```
-
-
 
 species count (number of Calluna plants) per plot
 ```{r}
@@ -42,20 +39,10 @@ count_per_plot <- calluna_data %>%
   group_by(DroughNet_plotID) %>%
   summarise(count = n())
 view(count_per_plot)
-
-#Step 2: Extract the envelope_ID values for plants in the "0.0" plot
-envelopes_in_zero_plot <- calluna_data %>%
-  filter(DroughNet_plotID == "0.0") %>%
-  select(envelope_ID) %>%
-  distinct()
-
-# Display the envelope_IDs associated with DroughNet_plotID '0.0'
-view(envelopes_in_zero_plot)
 ```
 
 no plots assigned
 ```{r}
-
 # Count plants with no plots assigned
 no_plot_count <- calluna_data %>%
   filter(is.na(DURIN_plot) & is.na(DroughNet_plotID)) %>%
@@ -65,51 +52,47 @@ no_plot_count <- calluna_data %>%
 # Combine the results
 combined_results <- bind_rows(count_durin_plot, count_droughnet_plot, no_plot_count)
 
-view(combined_results)
+ view(combined_results)
 
-```
-
-```{r}
 # Filter out all entries where both DURIN_plot and DroughNet_plotID are not assigned
 no_plots_assigned_by_envelope <- calluna_data %>%
   filter(is.na(DURIN_plot) & is.na(DroughNet_plotID)) %>%
   select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID)
 
-# Display the filtered data
 view(no_plots_assigned_by_envelope)
 ```
 #24 plants do not have plot assigned
 #solution- did a crosscheck with the main data set, all of them belong to phys
 
-```{r}
-# Filter entries where DroughNet_plotID is '0.0'
-envelopes_in_zero_plot <- calluna_data %>%
-  filter(DroughNet_plotID == "0.0") %>%
-  select(envelope_ID) %>%
-  distinct()
-
-# Display the envelope_IDs associated with DroughNet_plotID '0.0'
-view(envelopes_in_zero_plot)
-```
-
-
 check multiple heights for calluna vulgaris
 ```{r}
+# Filter for Calluna vulgaris, group by plant_nr and plant_height, and gather envelope_IDs
+    calluna_heights_and_envelopes <- calluna_data %>%
+      group_by(siteID, DURIN_plot, plant_nr, plant_height) %>%
+      summarise(
+        envelope_count = n(),
+        envelope_ids = list(envelope_ID)
+      )
 
-leaf_multiple_heights <- calluna_data %>%
-  group_by(envelope_ID) %>%
-  filter(n_distinct(plant_height) > 1) %>% # filter plants with multiple heights
-  ungroup()
+    # Filter to only include rows where there's more than one height for the same plant
+    multiple_heights_calluna <- calluna_heights_and_envelopes %>%
+      group_by(siteID, DURIN_plot, plant_nr) %>%
+      filter(n() > 1) %>%
+      ungroup()
+    view(multiple_heights_calluna)
 
-# Display the plants with multiple heights with the specified columns
-view(leaf_multiple_heights %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, plant_height))
+    expanded_calluna <- multiple_heights_calluna %>% #expanded the envelope_ID collumn to display all the barcodes
+      unnest(envelope_ids)
+    view(expanded_calluna)
+#found a good number of them with multple heights
+#solution- to crosscheck
 ```
-# no plants with multipple heights (not sure if the problem is my code, since you already traced some with multiple heights)
 
 plants with missing heights
 ```{r}
 # Filter data for the three sites and missing heights
 calluna_missing_heights <- calluna_data %>%
+  group_by(envelope_ID) %>%
   filter(siteID %in% c("Lygra", "Sogndal", "Senja"), is.na(plant_height))
 
 # Display the plants with missing heights
@@ -121,13 +104,13 @@ view(calluna_missing_heights %>% select(envelope_ID, siteID, DURIN_plot, DroughN
 missing shoot type
 ```{r}
 missing_shoot_type<- calluna_data %>%
+  group_by(envelope_ID) %>%
   filter(!calluna_shoot_type %in% c("Short", "Long"))
 
-view(missing_shoot_type %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, calluna_shoot_type))
-```
+view(missing_shoot_type %>% select(envelope_ID, calluna_shoot_type))
+
+unique(calluna_data$calluna_shoot_type)
 #Could you please review this code? Instead of filtering out entries without a shoot type, the resulting table seems to have a mix of both entries with and without shoot types, dont know where am missing out in this
-
-
 
 ```
 
