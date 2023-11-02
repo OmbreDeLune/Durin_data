@@ -90,7 +90,7 @@ view(tjøtta_2_2_rows)
 tjøtta_1_3_rows <- non_unique_treatment_rows %>%
     filter(siteID == "Tjøtta" & DroughNet_plotID == "1.3")
 view(tjøtta_1_3_rows)
-# verify again when checking age class seems 1.3 plot is found in both pioneer and mature stages
+# verify again when checking age class seems 1.3 plot is found in both pioneer and mature stagesnn
 
 # Filter for only Tjøtta's 1.2 plot from non_unique_treatment_rows
 tjøtta_1_2_rows <- non_unique_treatment_rows %>%
