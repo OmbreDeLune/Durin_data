@@ -66,24 +66,31 @@ view(no_plots_assigned_by_envelope)
 
 check multiple heights for calluna vulgaris
 ```{r}
-# Filter for Calluna vulgaris, group by plant_nr and plant_height, and gather envelope_IDs
-    calluna_heights_and_envelopes <- calluna_data %>%
-      group_by(siteID, DURIN_plot, plant_nr, plant_height) %>%
-      summarise(
-        envelope_count = n(),
-        envelope_ids = list(envelope_ID)
-      )
+  # Filter for Calluna vulgaris, exclude NA in DURIN_plot, group by plant_nr and plant_height, and gather envelope_IDs
+calluna_heights_and_envelopes <- calluna_data %>%
+  filter(!is.na(DURIN_plot)) %>%  # Exclude rows where DURIN_plot is NA
+  group_by(siteID, DURIN_plot, plant_nr, plant_height) %>%
+  summarise(
+    envelope_count = n(),
+    envelope_ids = list(envelope_ID)
+  ) %>%
+  ungroup()  # Make sure to ungroup after summarise
 
-    # Filter to only include rows where there's more than one height for the same plant
-    multiple_heights_calluna <- calluna_heights_and_envelopes %>%
-      group_by(siteID, DURIN_plot, plant_nr) %>%
-      filter(n() > 1) %>%
-      ungroup()
-    view(multiple_heights_calluna)
+# Filter to only include rows where there's more than one height for the same plant
+multiple_heights_calluna <- calluna_heights_and_envelopes %>%
+  group_by(siteID, DURIN_plot, plant_nr) %>%
+  filter(n() > 1) %>%
+  ungroup()
 
-    expanded_calluna <- multiple_heights_calluna %>% #expanded the envelope_ID collumn to display all the barcodes
-      unnest(envelope_ids)
-    view(expanded_calluna)
+# If you want to view this in R console
+view(multiple_heights_calluna)
+
+# Expand the envelope_ID column to display all the barcodes
+expanded_calluna <- multiple_heights_calluna %>%
+  unnest(envelope_ids)
+
+# If you want to view this in R console
+view(expanded_calluna)
 #found a good number of them with multple heights
 #solution- to crosscheck
 ```
