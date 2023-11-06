@@ -12,13 +12,15 @@ library(dplyr)
 library(readr)
 library(readr)
 
-data <- read_csv("DURIN_clean.csv")
+#part 1 identify errors in the data set
+data <- read_csv("C:/Users/User/Desktop/Durin_data/output/DURIN_clean.csv", guess_max = Inf)
 View(data)
 
 ```
 Filter data for species "Calluna vulgaris"
 ```{r}
-calluna_data <- filter(data, species == "Calluna vulgaris" & siteID %in% c("Lygra", "Sogndal", "Senja"))
+calluna_data <- filter(data, species == "Calluna vulgaris" & siteID %in% c("Lygra", "Sogndal", "Senja") & 
+         grepl("Field - Traits", project))
 view(calluna_data)
  ```
 # Count the number of "Calluna vulgaris" plants per site
@@ -61,8 +63,30 @@ no_plots_assigned_by_envelope <- calluna_data %>%
 
 view(no_plots_assigned_by_envelope)
 ```
-#24 plants do not have plot assigned
-#solution- did a crosscheck with the main data set, all of them belong to phys
+ # no  entries without plot assigned
+
+```{r}
+envelope_details <- calluna_data %>%
+  filter(month == "September") %>%
+  group_by(siteID, DURIN_plot, DroughNet_plotID, plant_nr) %>%
+  summarise(
+    envelope_count = n_distinct(envelope_ID),
+    envelope_ids = list(envelope_ID),
+    .groups = 'drop' # Drop grouping
+  )
+
+# Filter for cases where the envelope count is greater than 6
+excessive_envelope_details <- envelope_details %>%
+  filter(envelope_count > 6)
+View(excessive_envelope_details) 
+
+# Expand the envelope_ID column to display all the barcodes
+expanded_envelopeids <- excessive_envelope_details %>%
+  unnest(envelope_ids)
+View(expanded_envelopeids) 
+# found  plants with less and extras, not recorded yet
+```
+
 
 check multiple heights for calluna vulgaris
 ```{r}
@@ -89,10 +113,9 @@ view(multiple_heights_calluna)
 expanded_calluna <- multiple_heights_calluna %>%
   unnest(envelope_ids)
 
-# If you want to view this in R console
 view(expanded_calluna)
-#found a good number of them with multple heights
-#solution- to crosscheck
+#found a good number of them with multiple heights
+#solution- to crosscheck with field notes- registered in RD4 CHEKS
 ```
 
 plants with missing heights
@@ -105,21 +128,148 @@ calluna_missing_heights <- calluna_data %>%
 # Display the plants with missing heights
 view(calluna_missing_heights %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, plant_height))
 ```
-#29 calluna missing height
-#solution-did a cross check with main data set, all belong to phys
+#no calluna with missing height
+
 
 missing shoot type
 ```{r}
-missing_shoot_type<- calluna_data %>%
+missing_shoot_type <- calluna_data %>%
+  filter(month == "September") %>% #only calluna sampled in september had shoot type
   group_by(envelope_ID) %>%
-  filter(!calluna_shoot_type %in% c("Short", "Long"))
+  filter(is.na(calluna_shoot_type) | !calluna_shoot_type %in% c("Short", "Long"))
 
 view(missing_shoot_type %>% select(envelope_ID, calluna_shoot_type))
 
-unique(calluna_data$calluna_shoot_type)
-#Could you please review this code? Instead of filtering out entries without a shoot type, the resulting table seems to have a mix of both entries with and without shoot types, dont know where am missing out in this
+#found 3 entries with missing shoot type
+#To cross check with envelopes- already REGISTERED in rd4 checks
+```
+
+
+
+
+#part 2 correct errors
+# solution for multiple heights
+```{r}
+# load  the correct heights for calluna from the field notes 
+Plant_height_for_calluna <- read_csv("C:/Users/User/Desktop/Durin_data/output/Plant_height_for_calluna.csv")
+View(Plant_height_for_calluna)
+
+
+Plant_height_for_calluna <- Plant_height_for_calluna %>% #rename plant height
+  rename(correct_height = plant_height)
+
+
+# Perform the merge on both plant_nr and plot ids
+merged_data <- merge(calluna_data, Plant_height_for_calluna[c("DURIN_plot", "DroughNet_plotID", "plant_nr", "correct_height")],
+                     by = c("DURIN_plot", "DroughNet_plotID", "plant_nr"), 
+                     all.x = TRUE)
+
+# Replace the original height with the correct height
+merged_data$plant_height <- ifelse(is.na(merged_data$correct_height), 
+                                   merged_data$plant_height, 
+                                   merged_data$correct_height)
+
+# Drop the correct_height column if it's no longer needed
+merged_data <- merged_data[ , !(names(merged_data) %in% c("correct_height"))]
+view(merged_data)
+#multiple heights have been corrected.
+
+
+#check if the issue of multiple heights still persists
+# Check for multiple heights in merged data
+multiple_heights <- merged_data %>%
+  group_by(plant_nr, DURIN_plot, DroughNet_plotID) %>%
+  summarise(unique_heights = n_distinct(plant_height), .groups = 'drop') %>%
+  filter(unique_heights > 1)
+
+
+View(multiple_heights)
+#no plants with multiple heights
+
+```
+ 
+# solution for those missing calluna shoot type
+```{r}
+
+# correct entry
+calluna_data <- calluna_data %>%
+  mutate(calluna_shoot_type = ifelse(envelope_ID == "JVA1966" & (is.na(calluna_shoot_type) | calluna_shoot_type == ""), 
+                                     "Long", calluna_shoot_type))
+
+updated_entries <- filter(calluna_data, envelope_ID == "JVA1966") # check if updated
+View(updated_entries)
+
+
+#set entries with missing shoot type to NA
+# set missing or incorrect shoot types to NA for September samples
+calluna_data <- calluna_data %>%
+  mutate(calluna_shoot_type = ifelse(month == "September" & 
+                                     (is.na(calluna_shoot_type) | 
+                                      !calluna_shoot_type %in% c("Short", "Long")), 
+                                     NA, calluna_shoot_type))
+
+# Verify that the missing shoot types have been set to NA
+missing_shoot_type_corrected <- calluna_data %>%
+  filter(month == "September") %>%
+  group_by(envelope_ID) %>%
+  filter(is.na(calluna_shoot_type) | !calluna_shoot_type %in% c("Short", "Long"))
+
+View(missing_shoot_type_corrected %>% select(envelope_ID, calluna_shoot_type))
+
+```
+ 
+# solution for extra leaves per plant
+```{r}
+# Create a data frame with the mappings
+plot_update <- data.frame(
+  envelope_ID = c("JSB2142", "JRJ3443", "EZW2868", "FAY0434", "FCR0014", "FCU0944"), # envelope ids with wrong plot numbers
+  new_DURIN_plot = c("Ly_F_CV_4", "Ly_F_CV_3", "Se_F_CV_2", "Se_F_CV_2", "Se_O_CV_4", "Se_O_CV_1"),  # New DURIN_plot numbers as strings
+  new_plot_nr = c(4, 3, 2, 2, 4, 1)  # New plot_nr numbers
+)
+
+# Merge the updates with the original data
+calluna_data <- calluna_data %>%
+  left_join(plot_update, by = "envelope_ID") %>%
+  mutate(
+    DURIN_plot = ifelse(!is.na(new_DURIN_plot), new_DURIN_plot, DURIN_plot),
+    plotNR = ifelse(!is.na(new_plot_nr), new_plot_nr, plotNR)
+  ) %>%
+  # Remove the helper columns after the update
+  select(-new_DURIN_plot, -new_plot_nr)
+
+# Check the updated entriees
+updated_entries <- filter(calluna_data, envelope_ID %in% calluna_data$envelope_ID)
+View(updated_entries)
+
+# update site ID
+#correct site ID for FIV6929
+calluna_data <- calluna_data %>%
+  mutate(siteID = ifelse(envelope_ID == "FIV6929", "Sogndal", siteID))
+
+# check the updated entry
+updated_entry <- filter(calluna_data, envelope_ID == "FIV6929")
+View(updated_entry)
+
+# update plant number
+# Update the plant_number for"JUC3901" to 2
+calluna_data <- calluna_data %>%
+  mutate(plant_number = ifelse(envelope_ID == "JUC3901", 2, plant_nr))
+
+# Check the updated entry to confirm the change
+updated_entry <- filter(calluna_data, envelope_ID == "JUC3901")
+View(updated_entry)
 
 ```
 
 
-```
+
+
+
+
+
+
+
+
+
+
+
