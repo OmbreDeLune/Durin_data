@@ -9,18 +9,24 @@ load the Durin data set
 library(tidyverse)
 library(dplyr)
 library(readr)
+library(here)
+install.packages("here")
 
-data <- read_csv("DURIN_clean.csv")
+data <- read_csv(here("output/DURIN_clean.csv"), guess_max = Inf)
 view(data)
 ```
 
 filter to DroughtNet
 
 ```{r}
-(droughtnet_data <- data %>%
-  filter((ageClass == "Pioneer" | ageClass == "Mature") & 
-         (DroughtTrt == "Amb (0)" | DroughtTrt == "Ext (90)")))
+
+droughtnet_data <- data %>%
+  filter((ageClass == "Pioneer" | ageClass == "Mature") &
+         (DroughtTrt == "Amb (0)" | DroughtTrt == "Ext (90)") &
+         grepl("Field - Traits", project))
 view(droughtnet_data)
+
+
 ```
 
 plant count per site
@@ -78,19 +84,19 @@ view(non_unique_treatment_rows)
 lygra_2_1_rows <- non_unique_treatment_rows %>%
     filter(siteID == "Lygra" & DroughNet_plotID == "2.1")
 view(lygra_2_1_rows)
-# AEG7270 has Amb(0) treatment, the rest are extreme
+# AEG7270 has Amb(0) treatment, the rest are extreme, registered in RD4
 
 # Filter for only Tjøtta's 2.2 plot from non_unique_treatment_rows
 tjøtta_2_2_rows <- non_unique_treatment_rows %>%
     filter(siteID == "Tjøtta" & DroughNet_plotID == "2.2")
 view(tjøtta_2_2_rows)
-# EEN3300 has Amb(0) treatment, the rest are extreme
+# EEN3300 has Amb(0) treatment, the rest are extreme, REGISTERED IN RD4
 
 # Filter for only Tjøtta's 1.3 plot from non_unique_treatment_rows
 tjøtta_1_3_rows <- non_unique_treatment_rows %>%
     filter(siteID == "Tjøtta" & DroughNet_plotID == "1.3")
 view(tjøtta_1_3_rows)
-# verify again when checking age class seems 1.3 plot is found in both pioneer and mature stagesnn
+# verify again when checking age class seems 1.3 plot is found in both pioneer and mature stages
 
 # Filter for only Tjøtta's 1.2 plot from non_unique_treatment_rows
 tjøtta_1_2_rows <- non_unique_treatment_rows %>%
@@ -109,69 +115,49 @@ view(ageClass_missing)
 #no envelope ids with missing ageClass
 ```
 
-```{r}
-#number of leaves per plant
-# Filter the data for the four species and both sites, then count envelope_IDs per plant_nr
-# Load necessary libraries
-library(dplyr)
-
-# Filter the data for the specified species and sites, then count envelope_IDs per plant_nr
-envelope_counts <- droughtnet_data %>%
-  filter(species %in% c("Vaccinium myrtillus", "Empetrum nigrum", "Vaccinium vitis_idaea", "Calluna vulgaris"), 
-         siteID %in% c("Lygra", "Tjøtta")) %>%  
-  group_by(species, siteID, DroughNet_plotID, plant_nr) %>%
-  summarise(envelope_count = n_distinct(envelope_ID))
-
-# Display plants that don't have exactly 3 envelope_IDs
-incorrect_envelope_counts <- envelope_counts %>%
-  filter(envelope_count != 3)
-view(incorrect_envelope_counts)
-#some have less while others have more than the expected number
-```
 
 ```{r}
-# expected envelope count based on species
-# Filter the data for the specified species and sites, then count envelope_IDs per plant_nr
-envelope_counts <- droughtnet_data %>%
-  filter(species %in% c("Vaccinium myrtillus", "Empetrum nigrum", "Vaccinium vitis_idaea", "Calluna vulgaris"), 
-         siteID %in% c("Lygra", "Tjøtta")) %>%  
-  group_by(species, siteID, ageClass, DroughNet_plotID, plant_nr) %>%
-  summarise(envelope_count = n_distinct(envelope_ID)) %>%
-  mutate(expected_count = case_when(
-    species == "Vaccinium myrtillus" ~ 3,
-    species %in% c("Vaccinium vitis_idaea", "Empetrum nigrum", "Calluna vulgaris") ~ 6,
-    TRUE ~ NA_integer_
-  ))
-# Display plants that don't have the expected number of envelope_IDs
-incorrect_envelope_counts <- envelope_counts %>%
-  filter(envelope_count != expected_count)
 
-view(incorrect_envelope_counts)
+#checking for exceeding envelope count per plant
+# Calculate envelope counts and gather envelope IDs
+# Specify the month and site for Calluna vulgaris
+selected_month <- "September"  #to avoid counting calluna sampled in june
+selected_site_for_calluna <- "Lygra"
 
-
-```
-
-```{r}
-#to check number of leaves per plant
-# Filter the data for the specified species and sites, then gather envelope_IDs per plant_nr
 envelope_details <- droughtnet_data %>%
-  filter(species %in% c("Vaccinium myrtillus", "Empetrum nigrum", "Vaccinium vitis_idaea", "Calluna vulgaris"), 
-         siteID %in% c("Lygra", "Tjøtta")) %>%  
+  # Apply filter conditions for all species and add specific conditions for Calluna vulgaris
+  filter(
+    (species %in% c("Vaccinium myrtillus", "Empetrum nigrum", "Vaccinium vitis_idaea") & siteID %in% c("Lygra", "Tjøtta")) |
+    (species == "Calluna vulgaris" & siteID == selected_site_for_calluna & month == selected_month)
+  ) %>%
   group_by(species, siteID, DroughNet_plotID, plant_nr, ageClass) %>%
   summarise(
     envelope_count = n_distinct(envelope_ID),
-    envelope_ids = list(envelope_ID)
+    envelope_ids = list(envelope_ID),
+    .groups = 'drop'
   ) %>%
   mutate(expected_count = case_when(
     species == "Vaccinium myrtillus" ~ 3,
     species %in% c("Vaccinium vitis_idaea", "Empetrum nigrum", "Calluna vulgaris") ~ 6,
     TRUE ~ NA_integer_
   ))
-# Display plants that don't have the expected number of envelope_IDs and their associated envelope_IDs
-(incorrect_envelope_details <- envelope_details %>%
-  filter(envelope_count != expected_count))
-view(incorrect_envelope_details)
-#found quite a good number of plants that have less or more than the expected count of leaves
+
+# Filter for cases where the envelope count exceeds the expected count, specifically for each species
+incorrect_envelope_details <- envelope_details %>%
+  filter((species == "Vaccinium myrtillus" & envelope_count > 3) | 
+         (species == "Calluna vulgaris" & envelope_count > 6) |
+         (species == "Empetrum nigrum" & envelope_count > 6) |
+         (species == "Vaccinium vitis-idaea" & envelope_count > 6))
+
+View(incorrect_envelope_details)
+
+# Expand the envelope_ids column to display all barcodes for the incorrect cases
+expanded_envelope_ids <- incorrect_envelope_details %>%
+  unnest(envelope_ids)
+
+View(expanded_envelope_ids)
+# found incorrect envelope count,not registered yet in rd4 checks
+#solution- to check the envelOpes    
 ```
 
 checking for multiple heights in Calluna vulgaris specifically Lygra
@@ -195,9 +181,9 @@ checking for multiple heights in Calluna vulgaris specifically Lygra
     expanded_calluna <- multiple_heights_calluna %>% #expanded the envelope_ID collumn to display all the barcodes
       unnest(envelope_ids)
     view(expanded_calluna)
-    # a good number of the plants with multiple heights
-    # solution plot 1.2, plant 1, 6 envelopes same height, the BOA from phys had NA, plant 2, 6 envelopes same height, the 7 the one, BNS from phys, 3.3 6 envelopes same height, the 7th BOJ2452- phys
+    # a good number of the plants with multiple heights-documented already in rd4 checks
     ```
+
 
 checking calluna short or long shoot type
 ```{r}
@@ -206,9 +192,29 @@ unique_values <- droughtnet_data %>%
   filter(species == "Calluna vulgaris", siteID == "Lygra") %>%
   pull(calluna_shoot_type) %>%
   unique()
+view(unique_values)
 
-print(unique_values)
-# tried all ways i could think of to filter missing shoot type rows, but all the codes retains the rows with a mix of both
-#only this gave me NA ??????
+#filter calluna with missing shoot type
+missing_shoot_type <- droughtnet_data %>%
+  filter(species == "Calluna vulgaris", month == "September") %>%
+  group_by(envelope_ID) %>%
+  filter(is.na(calluna_shoot_type) | !(calluna_shoot_type %in% c("Short", "Long")))
+
+View(missing_shoot_type %>% select(envelope_ID, calluna_shoot_type))
+
+# 0 CV missing shoot type
+
+```
+
+check leaf age, young and old for EN and vv
+```{r}
+#check missing leaf age in VV and EN
+
+missing_leaf_age <- droughtnet_data %>%
+  filter(species %in% c("Empetrum nigrum", "Vaccinium vitis-idaea")) %>%  # Filter for both species
+  filter(is.na(leaf_age))  # Filter out rows with missing leaf age
+
+view(missing_leaf_age %>% select(envelope_ID, species, leaf_age))
+#no entries missing leaf ages
 ```
 
