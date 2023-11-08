@@ -10,9 +10,9 @@ Load the Data.,
 library(tidyverse)
 library(dplyr)
 library(readr)
-library(readr)
 
 #part 1 identify errors in the data set
+
 data <- read_csv("C:/Users/User/Desktop/Durin_data/output/DURIN_clean.csv", guess_max = Inf)
 View(data)
 
@@ -84,7 +84,27 @@ View(excessive_envelope_details)
 expanded_envelopeids <- excessive_envelope_details %>%
   unnest(envelope_ids)
 View(expanded_envelopeids) 
-# found  plants with less and extras, not recorded yet
+# found  plants extras, not recorded yet
+
+
+envelope_details <- calluna_data %>%
+  filter(month == "September") %>%
+  group_by(siteID, DURIN_plot, DroughNet_plotID, plant_nr) %>%
+  summarise(
+    envelope_count = n_distinct(envelope_ID),
+    envelope_ids = list(envelope_ID),
+    .groups = 'drop' # Drop grouping
+  )
+
+# Filter for cases where the envelope count is < 6
+few_envelope_details <- envelope_details %>%
+  filter(envelope_count < 6)
+View(less_envelope_details) 
+
+# Expand the envelope_ID column to display all the barcodes
+expanded_envelope_ids <- few_envelope_details %>%
+  unnest(envelope_ids)
+View(expanded_envelope_ids)
 ```
 
 
@@ -152,11 +172,19 @@ missing_plant_numbers <- calluna_data %>%
 
 # View the results
 View(missing_plant_numbers)
-#check envelopes
+#found 3 missing plant numbers
+#check envelopes for plot 5, 3 and 2 to check the missing plant numbers
+
+
+# Filter the data for DURIN_plot being exactly 'SE_F_CV_5' or 'SE_F_CV_3',SO_F_CV_2 to trace plant numbers for NAS
+filtered_data <- calluna_data %>%
+  filter(DURIN_plot == "SE_F_CV_5" | DURIN_plot == "SE_O_CV_3" | DURIN_plot == "SO_F_CV_2") %>%
+  select(DURIN_plot, envelope_ID, habitat, plant_nr,leaf_nr, calluna_shoot_type, plant_height)
+
+View(filtered_data)
+
 
 ```
-
-
 
 
 
