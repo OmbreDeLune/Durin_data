@@ -144,6 +144,20 @@ view(missing_shoot_type %>% select(envelope_ID, calluna_shoot_type))
 #To cross check with envelopes- already REGISTERED in rd4 checks
 ```
 
+```{r}
+
+# Filter for missing plant numbers
+missing_plant_numbers <- calluna_data %>%
+  filter(is.na(plant_nr))
+
+# View the results
+View(missing_plant_numbers)
+#check envelopes
+
+```
+
+
+
 
 
 
