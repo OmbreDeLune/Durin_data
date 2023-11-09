@@ -191,51 +191,97 @@ View(filtered_data)
 #part 2 correct errors
 # solution for multiple heights
 ```{r}
-# load  the correct heights for calluna from the field notes 
-Plant_height_for_calluna <- read_csv("C:/Users/User/Desktop/Durin_data/output/Plant_height_for_calluna.csv")
-View(Plant_height_for_calluna)
-
-
-Plant_height_for_calluna <- Plant_height_for_calluna %>% #rename plant height
-  rename(correct_height = plant_height)
-
-
-# Perform the merge on both plant_nr and plot ids
-merged_data <- merge(calluna_data, Plant_height_for_calluna[c("DURIN_plot", "DroughNet_plotID", "plant_nr", "correct_height")],
-                     by = c("DURIN_plot", "DroughNet_plotID", "plant_nr"), 
-                     all.x = TRUE)
-
-# Replace the original height with the correct height
-merged_data$plant_height <- ifelse(is.na(merged_data$correct_height), 
-                                   merged_data$plant_height, 
-                                   merged_data$correct_height)
-
-# Drop the correct_height column if it's no longer needed
-merged_data <- merged_data[ , !(names(merged_data) %in% c("correct_height"))]
-view(merged_data)
-#multiple heights have been corrected.
-
-
-#check if the issue of multiple heights still persists
-# Check for multiple heights in merged data
-multiple_heights <- merged_data %>%
-  group_by(plant_nr, DURIN_plot, DroughNet_plotID) %>%
-  summarise(unique_heights = n_distinct(plant_height), .groups = 'drop') %>%
-  filter(unique_heights > 1)
+# # load  the correct heights for calluna from the field notes 
+# Plant_height_for_calluna <- read_csv("C:/Users/User/Desktop/Durin_data/output/Plant_height_for_calluna.csv")
+# View(Plant_height_for_calluna)
+# 
+# 
+# Plant_height_for_calluna <- Plant_height_for_calluna %>% #rename plant height
+#   rename(correct_height = plant_height)
+# 
+# 
+# # Perform the merge on both plant_nr and plot ids
+# merged_data <- merge(calluna_data, Plant_height_for_calluna[c("DURIN_plot", "DroughNet_plotID", "plant_nr", "correct_height")],
+#                      by = c("DURIN_plot", "DroughNet_plotID", "plant_nr"), 
+#                      all.x = TRUE)
+# 
+# # Replace the original height with the correct height
+# merged_data$plant_height <- ifelse(is.na(merged_data$correct_height), 
+#                                    merged_data$plant_height, 
+#                                    merged_data$correct_height)
+# 
+# # Drop the correct_height column if it's no longer needed
+# merged_data <- merged_data[ , !(names(merged_data) %in% c("correct_height"))]
+# view(merged_data)
+# #multiple heights have been corrected.
+# 
+# 
+# #check if the issue of multiple heights still persists
+# # Check for multiple heights in merged data
+# multiple_heights <- merged_data %>%
+#   group_by(plant_nr, DURIN_plot, DroughNet_plotID) %>%
+#   summarise(unique_heights = n_distinct(plant_height), .groups = 'drop') %>%
+#   filter(unique_heights > 1)
 
 
 View(multiple_heights)
 #no plants with multiple heights
 
 ```
- 
-# solution for those missing calluna shoot type
+#correct heights
+
+```{r}
+#update plant heights
+
+new_heights <- data.frame(
+  envelope_ID = c("JSS9939", "JUX7595", "EZT0898", "ISG6942", "IRQ7403", "IRZ5734", "FJK2414", "FKA3240", "FBC7245", "FBO5718", "FBG3321", "JBP1451", "JTZ3317", "JAR2795", "JET0022"),
+  new_height = c(61.8, 34, 19.8, 32.6, 32.6, 32.6, 29.8, 29.8, 28.9, 28.9, 28.9, 30.5, 23.9, 30, 16.9)
+)
+
+# Join the new heights with the original calluna_data
+calluna_data <- calluna_data %>%
+  left_join(new_heights, by = "envelope_ID") %>%
+  mutate(
+    plant_height = case_when(
+      !is.na(new_height) ~ new_height,  # When new_height is  plant_height
+      TRUE ~ plant_height               # Otherwise, keep the original plant_height
+    )
+  ) %>%
+  select(-new_height)  # Remove the new_height column after updating
+
+
+```
+
+
+```{r}
+#update plant numbers
+# Create a data frame of the updates to make
+plant_nr_updates <- data.frame(
+  envelope_ID = c("FLJ9637", "FGH3419", "JUK8367", "JUC3901"),
+  new_plant_number = c(3, 1, 1, 2)
+)
+
+# Use mutate with case_when to update the plant_number
+calluna_data <- calluna_data %>%
+  left_join(plant_nr_updates, by = "envelope_ID") %>%
+  mutate(
+    plant_nr = case_when(
+      !is.na(new_plant_number) ~ new_plant_number,
+      TRUE ~ plant_nr                             
+    )
+  ) %>%
+  select(-new_plant_number)  # Remove the new_plant_number column after updating
+
+
+```
+
+
+
 ```{r}
 
-# correct entry
+# correct calluna shoot type
 calluna_data <- calluna_data %>%
-  mutate(calluna_shoot_type = ifelse(envelope_ID == "JVA1966" & (is.na(calluna_shoot_type) | calluna_shoot_type == ""), 
-                                     "Long", calluna_shoot_type))
+  mutate(calluna_shoot_type = ifelse(envelope_ID == "JVA1966" & (is.na(calluna_shoot_type) | calluna_shoot_type == ""),  "Long", calluna_shoot_type))
 
 updated_entries <- filter(calluna_data, envelope_ID == "JVA1966") # check if updated
 View(updated_entries)
@@ -259,13 +305,13 @@ View(missing_shoot_type_corrected %>% select(envelope_ID, calluna_shoot_type))
 
 ```
  
-# solution for extra leaves per plant
+
 ```{r}
-# Create a data frame with the mappings
+# update DURIN plot and plot_nr
 plot_update <- data.frame(
-  envelope_ID = c("JSB2142", "JRJ3443", "EZW2868", "FAY0434", "FCR0014", "FCU0944"), # envelope ids with wrong plot numbers
-  new_DURIN_plot = c("Ly_F_CV_4", "Ly_F_CV_3", "Se_F_CV_2", "Se_F_CV_2", "Se_O_CV_4", "Se_O_CV_1"),  # New DURIN_plot numbers as strings
-  new_plot_nr = c(4, 3, 2, 2, 4, 1)  # New plot_nr numbers
+  envelope_ID = c("JSB2142", "JRJ3443", "EZW2868", "FAY0434", "FCR0014", "FCU0944", "FCP8702", "JIQ4468", "JEU2375"), # envelope ids with wrong plot numbers
+  new_DURIN_plot = c("Ly_F_CV_4", "Ly_F_CV_3", "Se_F_CV_2", "Se_F_CV_2", "Se_O_CV_4", "Se_O_CV_1", "Se_F_CV_4", "So_O_CV_2", "So_O_CV_5"),  # New DURIN_plot IDS
+  new_plot_nr = c(4, 3, 2, 2, 4, 1, 4, 2, 5)  # New plot_nr numbers
 )
 
 # Merge the updates with the original data
@@ -291,14 +337,6 @@ calluna_data <- calluna_data %>%
 updated_entry <- filter(calluna_data, envelope_ID == "FIV6929")
 View(updated_entry)
 
-# update plant number
-# Update the plant_number for"JUC3901" to 2
-calluna_data <- calluna_data %>%
-  mutate(plant_number = ifelse(envelope_ID == "JUC3901", 2, plant_nr))
-
-# Check the updated entry to confirm the change
-updated_entry <- filter(calluna_data, envelope_ID == "JUC3901")
-View(updated_entry)
 
 ```
 
