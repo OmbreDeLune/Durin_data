@@ -188,7 +188,6 @@ View(filtered_data)
 
 
 
-
 #part 2 correct errors
 # solution for multiple heights
 ```{r}
