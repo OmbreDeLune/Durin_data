@@ -250,6 +250,32 @@ calluna_data <- calluna_data %>%
   select(-new_height)  # Remove the new_height column after updating
 
 
+#check if the issue of multiple heights  persists in the data
+
+# Group by envelope_ID and summarize the number of unique heights
+height_summary <- calluna_data %>%
+  group_by(envelope_ID) %>%
+  summarize(num_unique_heights = n_distinct(plant_height))
+
+# Filter for IDs with more than one unique height
+multiple_heights <- height_summary %>%
+  filter(num_unique_heights > 1)
+
+# Check if there are any IDs with multiple heights
+if(nrow(multiple_heights) > 0) {
+  cat("Some envelope_IDs have multiple heights:\n")
+  print(multiple_heights)
+
+  # Optional: Inspect specific cases
+  # calluna_data %>%
+  #   filter(envelope_ID %in% multiple_heights$envelope_ID) %>%
+  #   arrange(envelope_ID)
+} else {
+  cat("No multiple heights issue found.")
+}
+#no multiple heights issue found 
+
+
 ```
 
 
