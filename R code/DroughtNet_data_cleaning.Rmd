@@ -211,7 +211,7 @@ droughtnet_data <- droughtnet_data %>%
       TRUE ~ DroughtTrt  # Keeps the existing values for all other cases
     )
   )
-names(droughtnet_data)
+
 
 ```
 
