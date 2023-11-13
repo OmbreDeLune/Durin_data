@@ -396,3 +396,4 @@ durin <- read.csv("raw_data/2023.10.17_DURIN Plant Functional Traits_Lygra Sognd
   distinct()
 
 write.csv(durin, "output/DURIN_clean.csv")
+
