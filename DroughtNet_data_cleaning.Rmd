@@ -158,7 +158,6 @@ View(expanded_envelope_ids)
 
 ```{r}
 #checking for multiple heights in Calluna vulgaris specifically Lygra
-    
     # Filter for Calluna vulgaris, group by plant_nr and plant_height, and gather envelope_IDs
     calluna_heights_and_envelopes <- droughtnet_data %>%
       filter(species == "Calluna vulgaris", siteID == "Lygra") %>%  
@@ -198,7 +197,6 @@ view(calluna_heights_and_envelopes )
 
 ```{r}
 #checking calluna short or long shoot type
-
 # Get unique values of calluna_shoot_type for "Calluna vulgaris" in "Lygra"
 unique_values <- droughtnet_data %>%
   filter(species == "Calluna vulgaris", siteID == "Lygra") %>%
