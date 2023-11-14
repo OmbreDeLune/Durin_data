@@ -368,6 +368,19 @@ View(updated_entry)
 
 
 
+```{r}
+#add "north_south" and "coastal_inland" columns to describe the experimental set-up
+
+calluna_data<- calluna_data %>% 
+  mutate(north_south = factor(siteID, levels = c("Lygra", "Sogndal", "Senja", "Tjøtta", "Kautokeino"),
+                              labels = c("South", "South", "North", "North", "North"))) %>% 
+  mutate(coast_inland = factor(siteID, levels = c("Lygra", "Tjøtta", "Senja", "Sogndal", "Kautokeino"),
+                              labels = c("Coastal", "Coastal", "Coastal", "Inland", "Inland"))) %>%
+  select(...1, envelope_ID, day, month, year, siteID, north_south, coast_inland, everything())
+
+view(calluna_data)
+
+```
 
 
 
