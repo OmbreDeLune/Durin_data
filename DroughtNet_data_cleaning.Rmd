@@ -47,8 +47,6 @@ view(species_count_per_plot_site)
   group_by(siteID, species) %>%
   summarise(total_leaves = sum(leaf_nr, na.rm = TRUE)))
 ```
-
-
 ```{r}
 #check for missing Drought treament
 # Extract envelope_ID values with missing DroughtTrt
@@ -240,14 +238,21 @@ droughtnet_data <- droughtnet_data %>%
 ```{r}
 #add "north_south" and "coastal_inland" columns to describe the experimental set-up
 
-calluna_data<- calluna_data %>% 
+droughtnet_data<- droughtnet_data %>% 
   mutate(north_south = factor(siteID, levels = c("Lygra", "Sogndal", "Senja", "Tjøtta", "Kautokeino"),
                               labels = c("South", "South", "North", "North", "North"))) %>% 
   mutate(coast_inland = factor(siteID, levels = c("Lygra", "Tjøtta", "Senja", "Sogndal", "Kautokeino"),
                               labels = c("Coastal", "Coastal", "Coastal", "Inland", "Inland"))) %>%
   select(...1, envelope_ID, day, month, year, siteID, north_south, coast_inland, everything())
 
-view(calluna_data)
+view(droughtnet_data)
+
+
+
+# Write the cleaned data to a new CSV file in the current working directory
+write.csv(droughtnet_data, "droughtnet_data_cleaned.csv", row.names = FALSE)
+
+
 ```
 
 
