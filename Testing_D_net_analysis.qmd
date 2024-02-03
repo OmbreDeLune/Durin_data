@@ -1,0 +1,153 @@
+---
+title: "Test analysis"
+format: html
+editor: visual
+---
+{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+---
+
+```{r}
+#| echo: true
+library(tidyverse)
+#install.packages("lme4")
+library(lme4)
+#install.packages("Matrix")
+#install.packages("ggfortify")
+library(ggfortify)
+#install.packages("lmerTest")
+library(lmerTest)
+#install.packages("performance")
+library(performance)
+
+
+#load the data
+droughtnet_data <- read_csv("droughtnet_data_cleaned.csv")
+View(droughtnet_data)
+```
+
+```{r}
+# Standardize the DroughtTrt column
+droughtnet_data$DroughtTrt <- gsub("Ext\\(90\\)", "Ext (90)", droughtnet_data$DroughtTrt)
+droughtnet_data$DroughtTrt <- gsub("Amb\\(0\\)", "Amb (0)", droughtnet_data$DroughtTrt)
+
+View(droughtnet_data)
+
+# Specify the columns to check for NA values
+# List of columns to check for NA values
+columns_to_check <- c("DroughtTrt", "DroughNet_plotID", "ageClass", "siteID", 
+                      "species", "plant_height", "SLA", "mean_thickness")
+
+# Count NA values in each specified column
+na_counts <- sapply(droughtnet_data[columns_to_check], function(col) sum(is.na(col)))
+
+# Display the counts
+na_counts
+
+
+# Remove rows with NA values in these specific columns
+droughtnet_data <- droughtnet_data[complete.cases(droughtnet_data[, columns_to_check]), ]
+View(droughtnet_data)
+
+```
+
+```{r}
+#lets try to fit a model for plant height
+# main effect model for plant height both regions
+#species, droughttTrt, ageclass and siteID as fixed  effects and droughtnet_plotID as the random effect
+#main effect model- to assess the individual effects of each factor without considering interactions
+model_main_effects <- lmer(plant_height ~ species + DroughtTrt + ageClass + siteID + (1|DroughNet_plotID), data = droughtnet_data)
+summary(model_main_effects)
+#The intercept and species-specific effects are statistically significant 
+#The drought treatment effect is marginally significant
+#The age class and site effects are both highly significant and suggest important differences in the dependent variable across the categories.
+
+
+#plot residuals vs fitted values for the model- plot helps check homoscedasticity and non-linearity
+# Calculate fitted values and residuals
+fitted_values <- fitted(model_main_effects)
+residuals <- resid(model_main_effects)
+
+# Create a dataframe for plotting
+resid_df <- data.frame(Fitted = fitted_values, Residuals = residuals)
+
+# Plot Residuals vs. Fitted values
+ggplot(resid_df, aes(x = Fitted, y = Residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Fitted Values") +
+  ylab("Residuals") +
+  ggtitle("Residuals vs. Fitted")
+# plot does not show slight increase in variance of residuals with larger fitted values to the right- need to check homoscedasticity with a statistical test
+# there is no obvious non-linear pattern- suggesting linearity assumption being met
+
+
+# Normal Q-Q plot- checks if residuals are approximately normally distributed
+
+# Q-Q plot of residuals
+# Using ggplot2 for Q-Q plot
+ggplot(data = as.data.frame(residuals), aes(sample = residuals)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  ggtitle("Normal Q-Q Plot of Residuals")
+# shows residues normally distributed, but with potetnial outliers or extreme values
+
+
+# Check for outliers
+# Identifying potential outliers
+outlier_check <- resid_df[abs(resid_df$Residuals) > 3 * sd(resid_df$Residuals), ]
+print(outlier_check)
+# this gives zero outliers- which could mean non of the residuals are more then 3 sd away from the mean- hence no extreme outliers/ distribution of the residuals fall within the range
+
+# lets make a box plot to check the oultiers 
+# Create a box plot of residuals
+ggplot(resid_df, aes(y = Residuals)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  theme_minimal() +
+  ggtitle("Box Plot of Residuals")
+# shows outlier below the lower whisker
+
+
+# plot residuaals with each predictor (age class , siteID,, species)
+# Residuals vs. Predictors 
+# Residuals vs. Drought Treatment
+ggplot(droughtnet_data, aes(x = DroughtTrt, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Drought Treatment") +
+  ylab("Residuals") +
+  ggtitle("Residuals vs. Drought Treatment")
+
+# Residuals vs. Age Class
+ggplot(droughtnet_data, aes(x = ageClass, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Age Class") +
+  ylab("Residuals") +
+  ggtitle("Residuals vs. Age Class")
+
+# Residuals vs. Site ID
+ggplot(droughtnet_data, aes(x = siteID, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Site ID") +
+  ylab("Residuals") +
+  ggtitle("Residuals vs. Site ID")
+```
+
+```{r}
+#alternatively can use performance parkage to plot residuals
+
+performance::check_model(model_main_effects)
+
+
+```
+
+-   no clear evidence of non-linearity or heteroscendastity
+
+-   no apparent influential values
+
+-   random effects seem to meet the assumption of normality
+
+-   slight deviations in the tails- need to be explored
