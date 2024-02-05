@@ -272,14 +272,13 @@ view(droughtnet_data)
 # Standardize the DroughtTrt column
 droughtnet_data$DroughtTrt <- gsub("Ext\\(90\\)", "Ext (90)", droughtnet_data$DroughtTrt)
 droughtnet_data$DroughtTrt <- gsub("Amb\\(0\\)", "Amb (0)", droughtnet_data$DroughtTrt)
-view(droughtnet_data)
 
 
 # Initialize a list to store bounds
 bounds <- list()
 
 # Traits to calculate bounds for
-traits <- c("plant_height", "mean_thickness", "SLA", "LDMC") # Add or modify trait names as needed
+traits <- c("plant_height", "mean_thickness", "SLA", "LDMC") 
 
 # Calculate IQR, lower bound, and upper bound for each trait
 for (trait in traits) {
@@ -307,7 +306,6 @@ bounds
 #     # Update the dataframe to keep only non-outlier rows
 #     droughtnet_data <- droughtnet_data[non_outlier_rows, ]
 # }
-view(droughtnet_data)
 #this code is converting the data set to NAs, havent figured out why? will come back later.......
 
 # Write the cleaned data to a new CSV file in the current working directory
