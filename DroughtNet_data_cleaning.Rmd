@@ -6,7 +6,6 @@ load the Durin data set
 
 ```{r}
 library(tidyverse)
-library(dplyr)
 library(readr)
 library(here)
 #install.packages("here")
@@ -246,11 +245,73 @@ droughtnet_data<- droughtnet_data %>%
   select(...1, envelope_ID, day, month, year, siteID, north_south, coast_inland, everything())
 
 view(droughtnet_data)
+# Filter the dataset to include only rows where 'DroughtTrt' is not missing
+droughtnet_data <- droughtnet_data %>% filter(!is.na(DroughtTrt))
+
+view(droughtnet_data)
+
+#calculate mean thickness
+# Create a subset with only the relevant columns for thickness
+thickness_data <- droughtnet_data[, c("leaf_thickness_1_mm", "leaf_thickness_2_mm", "leaf_thickness_3_mm")]
+
+# Calculate mean thickness only for rows without any NAs
+mean_thickness <- rowMeans(thickness_data, na.rm = FALSE) # 'na.rm = FALSE' will return NA for rows with any NAs
+
+# Create a new data frame with mean_thickness after leaf_thickness_3_mm
+droughtnet_data <- droughtnet_data
+droughtnet_data <- within(droughtnet_data, mean_thickness <- mean_thickness)
+
+# Rearrange the columns to place mean_thickness after leaf_thickness_3_mm
+col_order <- c(names(droughtnet_data)[1:which(names(droughtnet_data) == "leaf_thickness_3_mm")], 
+               "mean_thickness", 
+               names(droughtnet_data)[(which(names(droughtnet_data) == "leaf_thickness_3_mm") + 1):(ncol(droughtnet_data)-1)])
+
+droughtnet_data <- droughtnet_data[, col_order]
+view(droughtnet_data)
+
+# Standardize the DroughtTrt column
+droughtnet_data$DroughtTrt <- gsub("Ext\\(90\\)", "Ext (90)", droughtnet_data$DroughtTrt)
+droughtnet_data$DroughtTrt <- gsub("Amb\\(0\\)", "Amb (0)", droughtnet_data$DroughtTrt)
+view(droughtnet_data)
 
 
+# Initialize a list to store bounds
+bounds <- list()
+
+# Traits to calculate bounds for
+traits <- c("plant_height", "mean_thickness", "SLA", "LDMC") # Add or modify trait names as needed
+
+# Calculate IQR, lower bound, and upper bound for each trait
+for (trait in traits) {
+  Q1 <- quantile(droughtnet_data[[trait]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(droughtnet_data[[trait]], 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  
+  bounds[[trait]] <- c("Lower Bound" = lower_bound, "Upper Bound" = upper_bound)
+}
+
+# Print the bounds for each trait
+bounds
+
+# Iterate over each trait and remove outliers
+for (trait in traits) {
+    lower_bound <- bounds[[trait]]["Lower Bound"]
+    upper_bound <- bounds[[trait]]["Upper Bound"]
+
+    # Create a logical vector for non-outlier rows
+    non_outlier_rows <- (droughtnet_data[[trait]] >= lower_bound & droughtnet_data[[trait]] <= upper_bound) | is.na(droughtnet_data[[trait]])
+
+    # Update the dataframe to keep only non-outlier rows
+    droughtnet_data <- droughtnet_data[non_outlier_rows, ]
+}
+view(droughtnet_data)
+#this code is converting the data set to NAs, havent figured out why?
 
 # Write the cleaned data to a new CSV file in the current working directory
-write.csv(droughtnet_data, "droughtnet_data_cleaned.csv", row.names = FALSE)
+write.csv(droughtnet_data, "droughtnet_data_cleaned1.csv", row.names = FALSE)
 
 
 ```
