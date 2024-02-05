@@ -297,21 +297,21 @@ for (trait in traits) {
 bounds
 
 # Iterate over each trait and remove outliers
-for (trait in traits) {
-    lower_bound <- bounds[[trait]]["Lower Bound"]
-    upper_bound <- bounds[[trait]]["Upper Bound"]
-
-    # Create a logical vector for non-outlier rows
-    non_outlier_rows <- (droughtnet_data[[trait]] >= lower_bound & droughtnet_data[[trait]] <= upper_bound) | is.na(droughtnet_data[[trait]])
-
-    # Update the dataframe to keep only non-outlier rows
-    droughtnet_data <- droughtnet_data[non_outlier_rows, ]
-}
+# for (trait in traits) {
+#     lower_bound <- bounds[[trait]]["Lower Bound"]
+#     upper_bound <- bounds[[trait]]["Upper Bound"]
+# 
+#     # Create a logical vector for non-outlier rows
+#     non_outlier_rows <- (droughtnet_data[[trait]] >= lower_bound & droughtnet_data[[trait]] <= upper_bound) | is.na(droughtnet_data[[trait]])
+# 
+#     # Update the dataframe to keep only non-outlier rows
+#     droughtnet_data <- droughtnet_data[non_outlier_rows, ]
+# }
 view(droughtnet_data)
-#this code is converting the data set to NAs, havent figured out why?
+#this code is converting the data set to NAs, havent figured out why? will come back later.......
 
 # Write the cleaned data to a new CSV file in the current working directory
-write.csv(droughtnet_data, "droughtnet_data_cleaned1.csv", row.names = FALSE)
+write.csv(droughtnet_data, "droughtnet_data_cleaned.csv", row.names = FALSE)
 
 
 ```
