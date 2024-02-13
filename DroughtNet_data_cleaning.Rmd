@@ -250,12 +250,14 @@ droughtnet_data <- droughtnet_data %>% filter(!is.na(DroughtTrt))
 
 view(droughtnet_data)
 
+
+
 #calculate mean thickness
 # Create a subset with only the relevant columns for thickness
 thickness_data <- droughtnet_data[, c("leaf_thickness_1_mm", "leaf_thickness_2_mm", "leaf_thickness_3_mm")]
 
-# Calculate mean thickness only for rows without any NAs
-mean_thickness <- rowMeans(thickness_data, na.rm = FALSE) # 'na.rm = FALSE' will return NA for rows with any NAs
+# Calculate mean thickness for each row, removing NAs in the calculation
+mean_thickness <- rowMeans(thickness_data, na.rm = TRUE) # 'na.rm = TRUE' will ignore NAs in rows and calculate mean from available values
 
 # Create a new data frame with mean_thickness after leaf_thickness_3_mm
 droughtnet_data <- droughtnet_data
@@ -274,6 +276,90 @@ droughtnet_data$DroughtTrt <- gsub("Ext\\(90\\)", "Ext (90)", droughtnet_data$Dr
 droughtnet_data$DroughtTrt <- gsub("Amb\\(0\\)", "Amb (0)", droughtnet_data$DroughtTrt)
 
 
+#heights for 7.1 and 7.3 in the data set does not match the field notes, those that belong to 7.1 are all in 7.3 plot and those in 7.3 are all in 7.1
+# 7.3 and 7.1 were reversed in the field when sampling which was not corrected on the ziplock bags and envelopes and the same mistake ended up in the data set, so correct the error and re-assign proper plot IDs
+#Ensure the correct data types for Droughtnet plot ID for the Lygra plots
+
+#ensure that DroughNet_plotID is numeric and siteID is a factor or character.
+# If DroughNet_plotID is not numeric, convert it. Similar for siteID.
+droughtnet_data <- droughtnet_data %>%
+  mutate(
+    DroughNet_plotID = as.numeric(as.character(DroughNet_plotID)),
+    siteID = as.factor(siteID)
+  )
+
+# update the DroughtTrt column based on the conditions
+droughtnet_data <- droughtnet_data %>%
+  mutate(
+    # specify conditions for changing DroughtTrt values
+    DroughtTrt = case_when(
+      # Condition for DroughNet_plotID 7.1 at Lygra site
+      DroughNet_plotID == 7.1 & siteID == "Lygra" ~ "Ext (90)",
+      # Condition for DroughNet_plotID 7.3 at Lygra site
+      DroughNet_plotID == 7.3 & siteID == "Lygra" ~ "Amb (0)",
+      # Default case to keep existing DroughtTrt values
+      TRUE ~ DroughtTrt
+    )
+  )
+
+view(droughtnet_data)
+# all the meta data now matches the correct 7.1 and 7.3 plots
+
+#inspect the data for overlapping plot ids
+
+# Filter for rows where siteID is "Tjøtta" and ageClass is "Mature"
+filtered_data <- droughtnet_data %>%
+  filter(siteID == "Tjøtta", ageClass == "Mature")
+
+view(filtered_data)
+
+
+filtered_data <- droughtnet_data %>%
+  filter(siteID == "Tjøtta", ageClass == "Pioneer")
+
+view(filtered_data)  
+# the data has overlap in the DroughNet_plotID for Tjøtta site
+
+# Now to rectify this
+# Reassign DroughNet_plotID values based on specified rules for Tjøtta and Mature
+#so the reassigning will start from 10.1 as a continuation from lygra to 15.3 for the ambient and extreme drought plots that were sampled
+droughtnet_data <- droughtnet_data %>%
+  mutate(DroughNet_plotID = case_when(
+    siteID == "Tjøtta" & ageClass == "Mature" & DroughNet_plotID == "1.2" ~ "10.1",
+    siteID == "Tjøtta" & ageClass == "Mature" & DroughNet_plotID == "1.3" ~ "10.3",
+    siteID == "Tjøtta" & ageClass == "Mature" & DroughNet_plotID == "2.1" ~ "11.1",
+    siteID == "Tjøtta" & ageClass == "Mature" & DroughNet_plotID == "2.2" ~ "11.2",
+    siteID == "Tjøtta" & ageClass == "Mature" & DroughNet_plotID == "3.1" ~ "12.1",
+    siteID == "Tjøtta" & ageClass == "Mature" & DroughNet_plotID == "3.2" ~ "12.2",
+    TRUE ~ as.character(DroughNet_plotID) # Keep original ID for other cases
+  ))
+
+
+# Update DroughNet_plotID values for Tjøtta and Pioneer based on specified rules
+droughtnet_data <- droughtnet_data %>%
+  mutate(DroughNet_plotID = case_when(
+    siteID == "Tjøtta" & ageClass == "Pioneer" & DroughNet_plotID == "1.2" ~ "13.2",
+    siteID == "Tjøtta" & ageClass == "Pioneer" & DroughNet_plotID == "1.3" ~ "13.3",
+    siteID == "Tjøtta" & ageClass == "Pioneer" & DroughNet_plotID == "2.2" ~ "14.2",
+    siteID == "Tjøtta" & ageClass == "Pioneer" & DroughNet_plotID == "2.3" ~ "14.3",
+    siteID == "Tjøtta" & ageClass == "Pioneer" & DroughNet_plotID == "3.2" ~ "15.2",
+    siteID == "Tjøtta" & ageClass == "Pioneer" & DroughNet_plotID == "3.3" ~ "15.3",
+    TRUE ~ as.character(DroughNet_plotID) # Keep original ID for other cases
+  ))
+
+view(droughtnet_data)
+
+#remove columns unrelated to droughtnet 
+# Remove the specified columns from the DataFrame
+columns_to_remove <- c("habitat", "plotNR", "DURIN_plot", "stomatal_conductance.gs.", "spectrometry", "cutout_barcode", "new_taxon", "flag", "remark_dry_weighing", "notes", "flag_DryMass", "remarks_2")
+droughtnet_data <- select(droughtnet_data, -all_of(columns_to_remove))
+
+# View the first few rows of the cleaned dataset
+view(droughtnet_data)
+
+
+
+#calculate bounds
 # Initialize a list to store bounds
 bounds <- list()
 
@@ -295,20 +381,8 @@ for (trait in traits) {
 # Print the bounds for each trait
 bounds
 
-# Iterate over each trait and remove outliers
-# for (trait in traits) {
-#     lower_bound <- bounds[[trait]]["Lower Bound"]
-#     upper_bound <- bounds[[trait]]["Upper Bound"]
-# 
-#     # Create a logical vector for non-outlier rows
-#     non_outlier_rows <- (droughtnet_data[[trait]] >= lower_bound & droughtnet_data[[trait]] <= upper_bound) | is.na(droughtnet_data[[trait]])
-# 
-#     # Update the dataframe to keep only non-outlier rows
-#     droughtnet_data <- droughtnet_data[non_outlier_rows, ]
-# }
-#this code is converting the data set to NAs, havent figured out why? will come back later.......
-
 # Write the cleaned data to a new CSV file in the current working directory
+
 write.csv(droughtnet_data, "droughtnet_data_cleaned.csv", row.names = FALSE)
 
 
