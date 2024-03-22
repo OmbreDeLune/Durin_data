@@ -1,0 +1,976 @@
+---
+title: Analysis
+author: ak
+format: 
+  html:
+    self-contained: true
+    
+    code-tools: true 
+    source: true
+    fig-width: 10
+    fig-height: 6
+---
+
+```{r}
+#Load libraries
+library(tidyverse)
+library(lme4)
+library(ggfortify)
+library(lmerTest)
+library(performance)
+library(readr)
+#install.packages("broom.mixed")
+library(broom.mixed)
+library(grid)
+```
+
+```{r}
+droughtnet <- read_csv("droughtnet_data_cleaned_final.csv", 
+                 col_types = cols(calluna_shoot_type = col_factor(levels = c("Long", "Short"))),
+                 guess_max = Inf)
+
+View(droughtnet)
+# Now, to reorder the ageClass factor levels to start with Pioneer
+droughtnet$ageClass <- factor(droughtnet$ageClass, levels = c("Mature", "Pioneer"))
+levels(droughtnet$ageClass)
+
+```
+
+```         
+```
+
+```{r}
+droughtnet2 <- droughtnet %>%
+  mutate(plant_nr = case_when(
+    # For Calluna vulgaris under Amb (0) treatment
+    siteID %in% c("Lygra", "Tjøtta") & 
+    ageClass %in% c("Pioneer", "Mature") & 
+    species == "Calluna vulgaris" & 
+    DroughtTrt == "Amb (0)" ~ paste0(siteID, "_", ageClass, "_CV_Amb(0)_", DroughNet_plotID, "_", plant_nr),
+
+    # For Calluna vulgaris under Ext (90) treatment
+    siteID %in% c("Lygra", "Tjøtta") & 
+    ageClass %in% c("Pioneer", "Mature") & 
+    species == "Calluna vulgaris" & 
+    DroughtTrt == "Ext (90)" ~ paste0(siteID, "_", ageClass, "_CV_Ext(90)_", DroughNet_plotID, "_", plant_nr),
+
+    # For Vaccinium myrtillus under Amb (0) treatment
+    siteID %in% c("Lygra", "Tjøtta") & 
+    ageClass %in% c("Pioneer", "Mature") & 
+    species == "Vaccinium myrtillus" & 
+    DroughtTrt == "Amb (0)" ~ paste0(siteID, "_", ageClass, "_VM_Amb(0)_", DroughNet_plotID, "_", plant_nr),
+
+    # For Vaccinium myrtillus under Ext (90) treatment
+    siteID %in% c("Lygra", "Tjøtta") & 
+    ageClass %in% c("Pioneer", "Mature") & 
+    species == "Vaccinium myrtillus" & 
+    DroughtTrt == "Ext (90)" ~ paste0(siteID, "_", ageClass, "_VM_Ext(90)_", DroughNet_plotID, "_", plant_nr),
+
+    # For Vaccinium vitis-idaea under Amb (0) treatment
+    siteID %in% c("Lygra", "Tjøtta") & 
+    ageClass %in% c("Pioneer", "Mature") & 
+    species == "Vaccinium vitis-idaea" & 
+    DroughtTrt == "Amb (0)" ~ paste0(siteID, "_", ageClass, "_VV_Amb(0)_", DroughNet_plotID, "_", plant_nr),
+
+    # For Vaccinium vitis-idaea under Ext (90) treatment
+    siteID %in% c("Lygra", "Tjøtta") & 
+    ageClass %in% c("Pioneer", "Mature") & 
+    species == "Vaccinium vitis-idaea" & 
+    DroughtTrt == "Ext (90)" ~ paste0(siteID, "_", ageClass, "_VV_Ext(90)_", DroughNet_plotID, "_", plant_nr),
+
+    # For Empetrum nigrum under Amb (0) treatment
+    siteID %in% c("Lygra", "Tjøtta") & 
+    ageClass %in% c("Pioneer", "Mature") & 
+    species == "Empetrum nigrum" & 
+    DroughtTrt == "Amb (0)" ~ paste0(siteID, "_", ageClass, "_EN_Amb(0)_", DroughNet_plotID, "_", plant_nr),
+
+    # For Empetrum nigrum under Ext (90) treatment
+    siteID %in% c("Lygra", "Tjøtta") & 
+    ageClass %in% c("Pioneer", "Mature") & 
+    species == "Empetrum nigrum" & 
+    DroughtTrt == "Ext (90)" ~ paste0(siteID, "_", ageClass, "_EN_Ext(90)_", DroughNet_plotID, "_", plant_nr),
+
+    # Default case if none of the above conditions are met
+    TRUE ~ as.character(plant_nr)
+  ))
+view(droughtnet2)
+```
+
+```         
+```
+
+```{r}
+```
+
+```{r}
+# Specify the columns to check for NA values
+# List of columns to check for NA values
+columns_to_check <- c("DroughtTrt", "DroughNet_plotID", "ageClass", "siteID", 
+                      "species", "plant_height", "SLA", "mean_thickness", "dry_mass_g_original", "LDMC", "leaf_area", "wet_mass_g", "dry_mass_g")
+
+
+# Check for rows with any NA values in the specified columns
+na_rows <- apply(droughtnet2[columns_to_check], 1, function(row) any(is.na(row)))
+
+# Create a data frame showing how many NA values there are in each row
+na_row_summary <- droughtnet2[na_rows, columns_to_check]
+na_row_summary$row_na_count <- rowSums(is.na(na_row_summary))
+
+# Summarize the number of rows by the count of NAs they contain
+na_row_summary <- na_row_summary %>%
+  group_by(row_na_count) %>%
+  summarise(n = n(), .groups = 'drop')
+
+# Create a summary showing the co-occurrence of NA values across the specified columns
+na_co_occurrence <- droughtnet2 %>%
+  summarise(across(all_of(columns_to_check), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "na_count") %>%
+  arrange(desc(na_count))
+
+# Print the summaries
+print(paste("Total rows with any NA values across checked columns:", sum(na_rows)))
+print(na_row_summary)
+print(na_co_occurrence)
+```
+
+```{r}
+# Create the new data frame with selected columns
+droughtnet_data2 <- select(droughtnet2, 
+                           "envelope_ID", "siteID", "species", "ageClass", "DroughtTrt", 
+                           "DroughNet_plotID", "leaf_age", "calluna_shoot_type", 
+                           "plant_height", "mean_thickness", "SLA", "LDMC", "plant_nr")
+
+view(droughtnet_data2)
+
+# Specify the columns to check for NA values
+columns_to_check2 <- c("plant_height", "mean_thickness", "SLA", "LDMC")
+
+# Remove rows with any NA values in the specified columns
+droughtnet_data2_clean <- droughtnet_data2[!rowSums(is.na(droughtnet_data2[columns_to_check2])), ]
+view(droughtnet_data2_clean)
+# Calculate the total number of NAs removed (for the specified columns only)
+# This calculation considers rows removed rather than individual NAs
+total_NAs_removed <- nrow(droughtnet_data2) - nrow(droughtnet_data2_clean)
+
+# Calculate the total number of entries remaining
+total_entries_remaining <- nrow(droughtnet_data2_clean)
+
+# Print out the total NAs removed and total entries remaining
+cat("Total NAs removed:", total_NAs_removed, "\n")
+cat("Total entries remaining:", total_entries_remaining, "\n")
+```
+
+**Analysis for young leaves**
+
+```{r}
+# Specify the species of interest, including Calluna vulgaris
+species_of_interest <- c("Empetrum nigrum", "Vaccinium myrtillus", "Vaccinium vitis-idaea", "Calluna vulgaris")
+
+# Filter the data to include only the specified species where leaf_age is 'young',
+# and for Calluna vulgaris, additionally check that calluna_shoot_type is 'short'
+
+filtered_data <- droughtnet_data2_clean %>%
+  filter(species %in% species_of_interest, leaf_age == "young") %>%
+  filter(
+    # Include Calluna vulgaris from Tjøtta regardless of calluna_shoot_type
+    (species == "Calluna vulgaris" & siteID == "Tjøtta") |
+    # Include Calluna vulgaris from Lygra only if calluna_shoot_type is Short
+    (species == "Calluna vulgaris" & siteID == "Lygra" & calluna_shoot_type == "Short") |
+    # Include other species of interest from both sites
+    (species != "Calluna vulgaris")
+  )
+
+  
+view(filtered_data)
+
+```
+
+```{r}
+p <- ggplot(filtered_data, aes(x = as.factor(plant_nr), y = mean_thickness, color = DroughtTrt)) +
+  geom_point() +  # Use geom_point for individual observations
+  facet_wrap(~ ageClass + siteID, scales = "free", nrow = 2) +  # Adjusted for clearer separation
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "thickness Response to Treatment",
+       x = "Plant Number",
+       y = "thickness",  # Assuming height is in centimeters
+       color = "Drought Treatment")  # Adjusted label
+
+
+ggsave("thickness_plot.png", plot = p, width = 10, height = 8, dpi = 300)
+
+
+```
+
+**plots**
+
+**plant height**
+
+```{r}
+filtered_data  <- filtered_data  %>%
+  filter(siteID %in% c("Tjøtta", "Lygra"),
+         DroughtTrt %in% c("Amb (0)", "Ext (90)"),
+         ageClass %in% c("Pioneer", "Mature"))
+
+ggplot(filtered_data, aes(x = species, y = plant_height, fill = DroughtTrt)) +
+  geom_boxplot() +
+  facet_grid(ageClass ~ siteID, scales = "free") +  # Removed leaf_age from facet_grid
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Plant Height vs Treatment by Species for Young Leaves",
+       x = "Species",
+       y = "Plant Height") +
+  scale_fill_manual(values = c("Amb (0)" = "blue", "Ext (90)" = "grey"))  # Assigning colors to treatments
+```
+
+**SLA**
+
+```{r}
+ggplot(filtered_data, aes(x = species, y = log(SLA), fill = DroughtTrt)) +
+  geom_boxplot() +
+  facet_grid(ageClass ~ siteID, scales = "free") + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), # vertical adjustment for x axis labels
+        plot.caption = element_text(hjust = 0.5)) + # Center the caption
+  labs(title = "SLA vs Treatment by Species",
+       x = "Species",
+       y = "Log (SLA)",
+       fill = "Drought Treatment",
+       caption = "Figure 2: SLA Variation in Dwarf Shrubs Under Drought Conditions Across Different Ages and Sites") +
+  scale_fill_manual(values = c("Amb (0)" = "orange", "Ext (90)" = "darkgrey")) # Assigning colors to treatments
+```
+
+**LDMC**
+
+```{r}
+ggplot(filtered_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
+  geom_boxplot() +
+  facet_grid(ageClass ~ siteID, scales = "free") + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), # vertical adjustment for x axis labels
+        plot.caption = element_text(hjust = 0.5)) + # Center the caption
+  labs(title = "LDMC vs Treatment by Species",
+       x = "Species",
+       y = "LDMC",
+       fill = "Drought Treatment",
+       caption = "Figure 3: LDMC Variation in dwarf Shrubs Under drought conditions across different successional phases and sites") +
+  scale_fill_manual(values = c("Amb (0)" = "darkblue", "Ext (90)" = "lightblue")) # Assigning colors to treatments
+
+
+#trying using jitter for the graphs
+ggplot(filtered_data, aes(x = species, y = LDMC, color = DroughtTrt)) +
+  geom_jitter(position = position_dodge(width = 0.5), size = 1.5, alpha = 0.7) + # Use position_dodge to separate points
+  facet_grid(ageClass ~ siteID, scales = "free") + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), # Vertical adjustment for x axis labels
+        plot.caption = element_text(hjust = 0.5)) + # Center the caption
+  labs(title = "LDMC vs Treatment by Species",
+       x = "Species",
+       y = "LDMC",
+       color = "Drought Treatment", # Updated from fill to color
+       caption = "Figure 3: LDMC Variation in Dwarf Shrubs Under Drought Conditions Across Different Successional Phases and Sites") +
+  scale_color_manual(values = c("Amb (0)" = "darkblue", "Ext (90)" = "red")) # Assigning colors to treatments
+
+
+```
+
+**Mean_thickness**
+
+```{r}
+filtered_data  <- filtered_data  %>%
+  filter(siteID %in% c("Tjøtta", "Lygra"),
+         DroughtTrt %in% c("Amb (0)", "Ext (90)"),
+         ageClass %in% c("Pioneer", "Mature"))
+
+ggplot(filtered_data, aes(x = species, y = mean_thickness, fill = DroughtTrt)) +
+  geom_boxplot() +
+  facet_grid(ageClass ~ siteID, scales = "free") +  # Removed leaf_age from facet_grid
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Plant Height vs Treatment by Species for Young Leaves",
+       x = "Species",
+       y = "mean_thickness") +
+  scale_fill_manual(values = c("Amb (0)" = "blue", "Ext (90)" = "grey"))  # Assigning colors to treatments
+
+```
+
+**Analysis for lygra site**
+
+**filter data only for lygra**
+
+```{r}
+# Filter the data for siteID Lygra
+lygra_data <- filtered_data %>%
+  filter(siteID == "Lygra")
+view(lygra_data)
+```
+
+**`Trait 1- LDMC- models`**
+
+```{r}
+lygra_data$plant_nr <- as.factor(lygra_data$plant_nr)
+# fitting a linear mixed-effects model using lmer, plant nr is the nested random effect
+# Ensure variables are treated as categorical if they represent categories
+lygra_data$plant_nr <- as.factor(lygra_data$plant_nr)
+
+# Model with all the main effects for LDMC
+LY_model_main_effects_LDMC <- lmer(LDMC ~ species + DroughtTrt + ageClass +
+                                (1 | DroughNet_plotID/plant_nr),
+                                data = lygra_data)
+summary(LY_model_main_effects_LDMC)
+#validate model
+performance::check_model(LY_model_main_effects_LDMC, detrend = FALSE)
+view(lygra_data)
+
+# Extract coefficients to a data frame
+
+
+```
+
+**2-way interactions**
+
+```{r}
+#species * DroughtTrt
+LY_LDMC_species_droughtTrt <- lmer(LDMC ~ species * DroughtTrt +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_LDMC_species_droughtTrt )
+#validate model
+performance::check_model(LY_LDMC_species_droughtTrt, detrend = FALSE)
+
+```
+
+```{r}
+#blme package- install
+ #install.packages("blme")
+
+library(blme)
+
+
+model <- blmer(LDMC ~ species * DroughtTrt + 
+                 (1 | DroughNet_plotID), 
+                  data = lygra_data)
+
+
+ 
+# Examine the summary of the model
+summary(model)
+names(lygra_data)
+```
+
+**plot model onto the ggplot**
+
+```{r}
+ggplot(lygra_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
+  geom_boxplot() +
+  facet_grid(~ ageClass, scales = "free") +  # Facet only by ageClass
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), # vertical adjustment for x axis labels
+        plot.caption = element_text(hjust = 0.5)) + # Center the caption
+  labs(title = "LDMC vs Treatment by Species",
+       x = "Species",
+       y = "LDMC",
+       fill = "Drought Treatment",
+       caption = "Figure 3: LDMC Variation in Dwarf Shrubs Under Drought Conditions Across Different Successional Phases") +
+  scale_fill_manual(values = c("Amb (0)" = "darkblue", "Ext (90)" = "lightblue"))
+
+#fit model
+
+# Get fitted values directly from the model
+fitted_values <- predict(LY_LDMC_species_droughtTrt, re.form = NA)  
+
+lygra_data$fitted <- fitted_values
+
+# Assuming fitted_values has been added to filtered_data as shown above
+ggplot(lygra_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
+  geom_boxplot() +
+  geom_point(aes(y = fitted), position = position_dodge(width = 0.75), color = "red", size = 1.5) + # Add fitted values
+  facet_grid(~ ageClass, scales = "free") + # Facet only by ageClass
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), # Vertical adjustment for x axis labels
+        plot.caption = element_text(hjust = 0.5)) + 
+  labs(title = "LDMC vs Treatment by Species",
+       x = "Species",
+       y = "LDMC",
+       fill = "Drought Treatment",
+       caption = "Figure 3: LDMC Variation in Dwarf Shrubs Under Drought Conditions Across Different Successional Phases") +
+  scale_fill_manual(values = c("Amb (0)" = "darkblue", "Ext (90)" = "lightblue"))
+
+
+
+
+#fiiting in the geom jitter plot
+
+# Get fitted values directly from the model
+fitted_values <- predict(LY_LDMC_species_droughtTrt, re.form = NA)  
+
+# Assuming 'fitted_values' is a vector of the same length as 'lygra_data'
+lygra_data$fitted <- fitted_values
+
+fitted_values$dodge_position <- as.numeric(lygra_data$DroughtTrt) - 1.5
+
+ggplot(lygra_data, aes(x = species, y = LDMC, group = DroughtTrt)) +
+  geom_jitter(aes(color = DroughtTrt), position = position_dodge(width = 0.5), size = 1.5, alpha = 0.7) +
+  geom_point(aes(y = fitted, color = DroughtTrt),  # Ensure 'fitted' is now recognized
+             position = position_dodge(width = 0.5), size = 3, shape = 16, color = "black") +
+  facet_grid(ageClass ~ siteID, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(title = "LDMC vs Treatment by Species", x = "Species", y = "LDMC", color = "Drought Treatment") +
+  scale_color_manual(values = c("Amb (0)" = "darkgreen", "Ext (90)" = "deeppink"))
+
+```
+
+```{r}
+# species * age Class (h2)xxx
+#this will help adress the hypothesis by examining weather the effect of drought on trait varies between age classes
+#significant interaction supports the hypothesis that mat and pio respond differently to droght conditions, potentially more consrvative traits in mat than pio
+LY_LDMC_species_ageClass <- lmer(LDMC ~ species * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_LDMC_species_ageClass)
+
+
+#validate model
+performance::check_model(LY_LDMC_species_ageClass, detrend = FALSE)
+```
+
+```{r}
+#xxxxx
+LY_droughtTrt_ageclass <- lmer(LDMC ~ DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_droughtTrt_ageclass)
+#plot variance zero
+#validate model
+performance::check_model(LY_droughtTrt_ageclass, detrend = FALSE)
+```
+
+**3-way interaction**
+
+```{r}
+LY_LDMC_species__drought_ageClass <- lmer(LDMC ~ species * DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_LDMC_species__drought_ageClass)
+
+
+#validate model
+performance::check_model(LY_LDMC_species__drought_ageClass, detrend = FALSE)
+
+```
+
+**Trait 2- SLA**
+
+```{r}
+#species * DroughtTrt
+LY_SLA_species_droughtTrt <- lmer(log(SLA) ~ species * DroughtTrt +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_SLA_species_droughtTrt)
+#validate model
+performance::check_model(LY_SLA_species_droughtTrt , detrend = FALSE)
+
+```
+
+```{r}
+# species * age Class xxxxxx
+
+LY_SLA_species_ageClass <- lmer(log(SLA) ~ species * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_SLA_species_ageClass)
+#zero variance
+
+
+#validate model
+performance::check_model(LY_SLA_species_ageClass, detrend = FALSE)
+anova(LY_SLA_species_ageClass)
+```
+
+```{r}
+#xxxxx
+LY_SLA_droughtTrt_ageclass <- lmer(log(SLA) ~ DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_SLA_droughtTrt_ageclass)
+#plot variance is zero
+#validate model
+performance::check_model(LY_SLA_droughtTrt_ageclass, detrend = FALSE)
+anova(LY_SLA_droughtTrt_ageclass)
+```
+
+```{r}
+#xxxx
+LY_SLA_species__drought_ageClass <- lmer(log(SLA) ~ species * DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_SLA_species__drought_ageClass)
+#plot variance is zero
+
+
+#validate model
+performance::check_model(LY_SLA_species__drought_ageClass, detrend = FALSE)
+anova(LY_SLA_species__drought_ageClass)
+
+```
+
+**Trait 3: plant height**
+
+```{r}
+#species * DroughtTrt
+LY_height_species_droughtTrt <- lmer(plant_height ~ species * DroughtTrt +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_height_species_droughtTrt)
+#validate model
+performance::check_model(LY_height_species_droughtTrt , detrend = FALSE)
+anova(LY_height_species_droughtTrt)
+
+```
+
+```{r}
+# species * age Class (h2)
+
+LY_height_species_ageClass <- lmer(plant_height ~ species * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_height_species_ageClass)
+
+
+#validate model
+performance::check_model(LY_height_species_ageClass, detrend = FALSE)
+anova(LY_height_species_ageClass)
+
+```
+
+```{r}
+#xxxx
+LY_height_droughtTrt_ageclass <- lmer(plant_height ~ DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_height_droughtTrt_ageclass)
+# failed to converge
+#validate model
+performance::check_model(LY_height_droughtTrt_ageclass, detrend = FALSE)
+anova(LY_height_droughtTrt_ageclass)
+```
+
+```{r}
+LY_height_species__drought_ageClass <- lmer(plant_height ~ species * DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_height_species__drought_ageClass)
+
+
+#validate model
+performance::check_model(LY_height_species__drought_ageClass, detrend = FALSE)
+anova(LY_height_species__drought_ageClass)
+
+```
+
+**Trait 4: mean -thickness**
+
+```{r}
+#species * DroughtTrt
+#xxxx
+LY_thickness_species_droughtTrt <- lmer(mean_thickness ~ species * DroughtTrt +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_thickness_species_droughtTrt)
+#plot variance is zero
+#validate model
+performance::check_model(LY_thickness_species_droughtTrt , detrend = FALSE)
+
+
+```
+
+```{r}
+# species * age Class xxx
+
+LY_thickness_species_ageClass <- lmer(mean_thickness ~ species * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_thickness_species_ageClass)
+
+
+#validate model
+performance::check_model(LY_thickness_species_ageClass, detrend = FALSE)
+
+```
+
+```{r}
+#xxxx
+LY_thickness_droughtTrt_ageclass <- lmer(mean_thickness ~ DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_thickness_droughtTrt_ageclass)
+#plot and plant nr variance is 0
+#validate model
+performance::check_model(LY_thickness_droughtTrt_ageclass, detrend = FALSE)
+anova(LY_thickness_droughtTrt_ageclass)
+```
+
+**three way interactions**
+
+```{r}
+LY_thickness_species__drought_ageClass <- lmer(mean_thickness ~ species * DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = lygra_data)
+
+summary(LY_thickness_species__drought_ageClass)
+#the model is okak, but very small variability
+
+#validate model
+performance::check_model(LY_thickness_species__drought_ageClass, detrend = FALSE)
+anova(LY_thickness_species__drought_ageClass)
+```
+
+**site: Tjøtta**
+
+```{r}
+# Filter the data for siteID tjøtta
+tjøtta_data <- filtered_data %>%
+  filter(siteID == "Tjøtta")
+view(tjøtta_data)
+```
+
+**trait 1- LDMC**
+
+```{r}
+tj_LDMC_species_ageClass <- lmer(LDMC ~ species * DroughtTrt +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_LDMC_species_ageClass)
+performance::check_model(tj_LDMC_species_ageClass, detrend = FALSE)
+```
+
+```{r}
+# species * age Class (h2)
+
+tj_LDMC_species_ageClass <- lmer(LDMC ~ species * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_LDMC_species_ageClass)
+
+
+#validate model
+performance::check_model(tj_LDMC_species_ageClass, detrend = FALSE)
+```
+
+```{r}
+tj_LDMC_drought_ageClass <- lmer(LDMC ~ DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_LDMC_drought_ageClass)
+
+
+#validate model
+performance::check_model(tj_LDMC_drought_ageClass, detrend = FALSE)
+```
+
+**three way**
+
+```{r}
+tj_LDMC_species__drought_ageClass <- lmer(LDMC ~ species * DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_LDMC_species__drought_ageClass)
+
+
+#validate model
+performance::check_model(tj_LDMC_species__drought_ageClass, detrend = FALSE)
+anova(tj_LDMC_species__drought_ageClass)
+```
+
+**Trait- plant height**
+
+```{r}
+tj_height_species_drought <- lmer(log(plant_height) ~ species * DroughtTrt +
+                                    (1 | DroughNet_plotID), 
+                                  data = tjøtta_data)
+
+summary(tj_height_species_drought)
+performance::check_model(tj_height_species_drought, detrend = FALSE)
+```
+
+```{r}
+tj_height_species_ageClass <- lmer(log(plant_height) ~ species * ageClass +
+                                    (1 | DroughNet_plotID), 
+                                  data = tjøtta_data)
+
+summary(tj_height_species_ageClass)
+performance::check_model(tj_height_species_ageClass, detrend = FALSE)
+```
+
+```{r}
+tj_height_drought_ageClass <- lmer(log(plant_height) ~ DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID), 
+                                  data = tjøtta_data)
+
+summary(tj_height_drought_ageClass)
+
+
+#validate model
+performance::check_model(tj_height_drought_ageClass, detrend = FALSE)
+```
+
+**three way**
+
+```{r}
+tj_height_species_drought_ageClass <- lmer(log(plant_height) ~ species * DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID), 
+                                  data = tjøtta_data)
+summary(tj_height_species_drought_ageClass)
+
+
+#validate model
+performance::check_model(tj_height_species_drought_ageClass, detrend = FALSE)
+anova(tj_LDMC_species__drought_ageClass)
+```
+
+**trait2 - SLA**
+
+```{r}
+tj_sla_species_drought <- lmer(log(SLA) ~ species * DroughtTrt +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_sla_species_drought)
+performance::check_model(tj_sla_species_drought, detrend = FALSE)
+```
+
+```{r}
+tj_sla_species_ageClass <- lmer(log(SLA) ~ species * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_sla_species_ageClass)
+performance::check_model(tj_sla_species_ageClass, detrend = FALSE)
+```
+
+```{r}
+#xxx
+tj_sla_drought_ageClass <- lmer(log(SLA) ~ DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_sla_drought_ageClass)
+
+
+#validate model
+performance::check_model(tj_sla_drought_ageClass, detrend = FALSE)
+```
+
+**three way**
+
+```{r}
+tj_sla_species__drought_ageClass <- lmer(log(SLA) ~ species * DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+summary(tj_sla_species__drought_ageClass)
+
+
+#validate model
+performance::check_model(tj_sla_species__drought_ageClass, detrend = FALSE)
+anova(tj_sla_species__drought_ageClass)
+```
+
+**trait 4: mean thickness**
+
+```{r}
+tj_thickness_species_drought <- lmer(mean_thickness ~ species * DroughtTrt +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_thickness_species_drought)
+performance::check_model(tj_thickness_species_drought, detrend = FALSE)
+
+```
+
+```{r}
+tj_thickness_species_ageClass <- lmer(mean_thickness ~ species * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_thickness_species_ageClass)
+performance::check_model(tj_thickness_species_ageClass, detrend = FALSE)
+```
+
+```{r}
+#xxx
+tj_thickness_drought_ageClass <- lmer(mean_thickness ~ DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+
+summary(tj_thickness_drought_ageClass)
+
+
+#validate model
+performance::check_model(tj_thickness_drought_ageClass, detrend = FALSE)
+```
+
+**three way**
+
+```{r}
+tj_thickness_species_drought_ageClass <- lmer(mean_thickness ~ species + DroughtTrt * ageClass +
+                                    (1 | DroughNet_plotID/plant_nr), 
+                                  data = tjøtta_data)
+summary(tj_thickness_species_drought_ageClass)
+
+
+#validate model
+performance::check_model(tj_thickness_species_drought_ageClass, detrend = FALSE)
+anova(tj_thickness_species_drought_ageClass)
+```
+
+**young and old leaves (lygra)**
+
+```{r}
+# Subset the data for the specified species with young and old leaves, and for the Lygra site
+subset_data1 <- subset(droughtnet_data2_clean, species %in% c("Vaccinium vitis-idaea", "Empetrum nigrum") & siteID == "Lygra")
+
+# View the first few rows of the subsetted data
+View(subset_data1)
+
+```
+
+**LDMC**
+
+```{r}
+ldmc_three_way_interactions <- lmer(LDMC ~ species * DroughtTrt * leaf_age +
+                                (1 | DroughNet_plotID/plant_nr), 
+                              data = subset_data1)
+
+summary(ldmc_three_way_interactions)
+performance::check_model(ldmc_three_way_interactions, detrend = FALSE)
+```
+
+**SLA**
+
+```{r}
+sla_three_way_interactions <- lmer(log(SLA) ~ species * DroughtTrt * leaf_age +
+                                (1 | DroughNet_plotID/plant_nr), 
+                              data = subset_data1)
+
+summary(sla_three_way_interactions)
+performance::check_model(sla_three_way_interactions, detrend = FALSE)
+anova(sla_three_way_interactions)
+```
+
+**mean thickness**
+
+```{r}
+thickness_three_way_interactions <- lmer(mean_thickness ~ species * DroughtTrt * leaf_age +
+                                (1 | DroughNet_plotID/plant_nr), 
+                              data = subset_data1)
+
+summary(thickness_three_way_interactions)
+performance::check_model(thickness_three_way_interactions, detrend = FALSE)
+```
+
+**young and old leaves (tjøtta)**
+
+```{r}
+# Subset the data for the specified species with young and old leaves, and for the Lygra site
+subset_data2 <- subset(droughtnet_data2_clean, species %in% c("Vaccinium vitis-idaea", "Empetrum nigrum") & siteID == "Tjøtta")
+
+# View the first few rows of the subsetted data
+View(subset_data2)
+```
+
+**LDMC**
+
+```{r}
+ldmc1_three_way_interactions <- lmer(LDMC ~ species * DroughtTrt * leaf_age +
+                                (1 | DroughNet_plotID/plant_nr), 
+                              data = subset_data2)
+
+summary(ldmc1_three_way_interactions)
+performance::check_model(ldmc1_three_way_interactions, detrend = FALSE)
+```
+
+**SLA**
+
+```{r}
+sla2_three_way_interactions <- lmer(log(SLA) ~ species * DroughtTrt * leaf_age +
+                                (1 | DroughNet_plotID/plant_nr), 
+                              data = subset_data2)
+
+summary(sla2_three_way_interactions)
+performance::check_model(sla2_three_way_interactions, detrend = FALSE)
+```
+
+**mean thickness**
+
+```{r}
+thickness3_three_way_interactions <- lmer(mean_thickness ~ species * DroughtTrt * leaf_age +
+                                (1 | DroughNet_plotID/plant_nr), 
+                              data = subset_data2)
+
+summary(thickness3_three_way_interactions)
+performance::check_model(thickness3_three_way_interactions, detrend = FALSE)
+```
+
+**CALLUNA SHOOT TYPE (lygra)**
+
+```{r}
+# Create a data frame for Calluna vulgaris at the Lygra site and remove rows with NA values
+calluna_shoot <- droughtnet_data2_clean %>%
+  filter(species == "Calluna vulgaris" & siteID == "Lygra") %>%
+  drop_na()
+
+view(calluna_shoot)
+```
+
+**LDMC**
+
+```{r}
+shoot_type_lmdc3 <- lmer(LDMC ~ (calluna_shoot_type * DroughtTrt * ageClass) +
+                               (1 | DroughNet_plotID/plant_nr), 
+                             data = calluna_shoot)
+summary(shoot_type_lmdc3)
+
+performance::check_model(shoot_type_lmdc3, detrend = FALSE)
+```
+
+**SLA**
+
+```{r}
+shoot_type_sla3 <- lmer(log(SLA) ~ (calluna_shoot_type * DroughtTrt * ageClass) +
+                               (1 | DroughNet_plotID/plant_nr), 
+                             data = calluna_shoot)
+summary(shoot_type_sla3)
+
+performance::check_model(shoot_type_sla3, detrend = FALSE)
+```
+
+**mean thickness**
+
+```{r}
+shoot_type_thickness3 <- lmer(mean_thickness ~ (calluna_shoot_type * DroughtTrt * ageClass) +
+                               (1 | DroughNet_plotID/plant_nr), 
+                             data = calluna_shoot)
+summary(shoot_type_thickness3)
+
+performance::check_model(shoot_type_thickness3, detrend = FALSE)
+```
