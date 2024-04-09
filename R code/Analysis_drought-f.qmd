@@ -26,6 +26,7 @@ library(ggeffects)
 #install.packages("sjPlot")
 library(sjPlot)
 library(sjlabelled)
+library(emmeans)
 ```
 
 ```{r}
@@ -33,10 +34,8 @@ droughtnet <- read_csv("droughtnet_data_cleaned_final.csv",
                  col_types = cols(calluna_shoot_type = col_factor(levels = c("Long", "Short"))),
                  guess_max = Inf)
 
-View(droughtnet)
-# Now, to reorder the ageClass factor levels to start with Pioneer
+#  Now, to reorder the ageClass factor levels to start with Pioneer
 droughtnet$ageClass <- factor(droughtnet$ageClass, levels = c("Pioneer", "Mature"))
-levels(droughtnet$ageClass)
 
 ```
 
@@ -94,7 +93,7 @@ droughtnet2 <- droughtnet %>%
 
     TRUE ~ as.character(plant_nr)
   ))
-view(droughtnet2)
+
 ```
 
 
@@ -136,14 +135,11 @@ droughtnet_data2 <- select(droughtnet2,
                            "DroughNet_plotID", "leaf_age", "calluna_shoot_type", 
                            "plant_height", "mean_thickness", "SLA", "LDMC", "leaf_area", "plant_nr")
 
-view(droughtnet_data2)
-
 # Specify the columns to check for NA values
 columns_to_check2 <- c("plant_height", "mean_thickness", "SLA", "LDMC", "leaf_area")
 
 # Remove rows with any NA values in the specified columns
 droughtnet_data2_clean <- droughtnet_data2[!rowSums(is.na(droughtnet_data2[columns_to_check2])), ]
-view(droughtnet_data2_clean)
 # Calculate the total number of NAs removed (for the specified columns only)
 # This calculation considers rows removed rather than individual NAs
 total_NAs_removed <- nrow(droughtnet_data2) - nrow(droughtnet_data2_clean)
@@ -162,8 +158,8 @@ cat("Total entries remaining:", total_entries_remaining, "\n")
 # Specify the species of interest, including Calluna vulgaris
 species_of_interest <- c("Empetrum nigrum", "Vaccinium myrtillus", "Vaccinium vitis-idaea", "Calluna vulgaris")
 
-# Filter the data to include only the specified species where leaf_age is 'young',
-# and for Calluna vulgaris, additionally check that calluna_shoot_type is 'short'
+# Filter the data to include only the specified species where leaf_age is "young",
+# and for Calluna vulgaris, additionally check that calluna_shoot_type is "short"
 
 filtered_data <- droughtnet_data2_clean %>%
   filter(species %in% species_of_interest, leaf_age == "young") %>%
@@ -320,10 +316,6 @@ anova(area_d_s_a_r)
 #validate model
 performance::check_model(area_d_s_a_r, detrend = FALSE)
 ```
-While "site" as a main factor for does not significantly affect the functional trait response to drought in some traits, its interactions with other factors are significant. This indicates that the effect of drought on the functional trait is strongly influenced by the site, and there are also significant three-way and four-way interactions involving "site." These findings suggest that the role of "site" is complex and becomes important when considered in combination with other factors like species, drought treatment, and age class.
-The presence of significant interactions involving site underscores the importance of considering geographic location or environmental conditions in functional trait responses to drought.
-
-We therefore proceed to partition the data by site
 
 
 ```{r}
@@ -352,13 +344,16 @@ anova_wide <- anova_combined %>%
   select(term, Trait, p.value) %>%
   pivot_wider(names_from = Trait, values_from = p.value)
 
-# Print the wide-format table
 print(anova_wide)
 
 write.csv(anova_wide, file = "anova_summary.csv", row.names = FALSE)
 
 ```
 
+While "site" as a main factor for does not significantly affect the functional trait response to drought in some traits, its interactions with other factors are significant. This indicates that the effect of drought on the functional trait is strongly influenced by the site, and there are also significant three-way and four-way interactions involving "site." These findings suggest that the role of "site" is complex and becomes important when considered in combination with other factors like species, drought treatment, and age class.
+The presence of significant interactions involving site underscores the importance of considering geographic location or environmental conditions in functional trait responses to drought.
+
+We therefore proceed to partition the data by site
 
 1 **Analysis for lygra site**
 
@@ -366,28 +361,16 @@ write.csv(anova_wide, file = "anova_summary.csv", row.names = FALSE)
 
 ```{r}
 # Filter the data for siteID Lygra
+
 lygra_data <- filtered_data %>%
   filter(siteID == "Lygra")
 view(lygra_data)
 lygra_data$species <- as.factor(lygra_data$species)
 lygra_data$ageClass <- as.factor(lygra_data$ageClass)
 lygra_data$DroughtTrt <- as.factor(lygra_data$DroughtTrt)
-
-```
-
-```{r}
-ggplot(lygra_data, aes(x = species, y = leaf_area, fill = DroughtTrt)) +
-  geom_boxplot() +
-  facet_grid(~ ageClass, scales = "free") + 
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), 
-        plot.caption = element_text(hjust = 0.5)) + 
-  labs(title = "LDMC vs Treatment by Species",
-       x = "Species",
-       y = "leaf area",
-       fill = "Drought Treatment",
-       caption = "Figure 3: leaf area Variation in dwarf Shrubs Under drought conditions across different successional phases and sites") +
-  scale_fill_manual(values = c("Amb (0)" = "blue", "Ext (90)" = "lightblue")) 
+levels(lygra_data$ageClass)
+lygra_data$ageClass <- factor(lygra_data$ageClass, levels = c("Pioneer", "Mature"))
+levels(lygra_data$ageClass)
 
 ```
 
@@ -424,20 +407,12 @@ summary(emm_age1)
 ```
 
 ```{r}
-#over lay the three way interaction on the plot for data 
-if (!requireNamespace("emmeans", quietly = TRUE)) {
-  install.packages("emmeans")
-}
+# Load required packages
+if (!requireNamespace("emmeans", quietly = TRUE)) install.packages("emmeans")
 library(emmeans)
-
-if (!requireNamespace("dplyr", quietly = TRUE)) {
-  install.packages("dplyr")
-}
+if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")
 library(dplyr)
-
-if (!requireNamespace("ggplot2", quietly = TRUE)) {
-  install.packages("ggplot2")
-}
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
 library(ggplot2)
 
 # Calculate estimated marginal means for the interaction
@@ -446,14 +421,7 @@ emm_ldmc <- emmeans(LY_LDMC_s_d_a, ~ DroughtTrt * species * ageClass)
 # Convert EMMs to a dataframe for plotting
 emm_ldmc_df <- summary(emm_ldmc) %>%
   as.data.frame() %>%
-  mutate(species = recode(species,
-                          "Calluna vulgaris" = "CV",
-                          "Vaccinium myrtillus" = "VM",
-                          "Empetrum nigrum" = "EN",
-                          "Vaccinium vitis-idaea" = "VV"))
-
-# Define the dodge width for the boxplots and points
-dodge_width <- 0.75
+  mutate(species = recode(species, "Calluna vulgaris" = "CV", "Vaccinium myrtillus" = "VM", "Empetrum nigrum" = "EN", "Vaccinium vitis-idaea" = "VV"))
 
 # Create a data frame for annotations
 annotations <- data.frame(
@@ -463,7 +431,6 @@ annotations <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# # Then, use dplyr to mutate the label based on conditions
 annotations <- annotations %>%
   mutate(label = case_when(
     ageClass == "Pioneer" & species == "CV" ~ "e",
@@ -477,47 +444,41 @@ annotations <- annotations %>%
     ageClass == "Mature" & species == "EN" ~ "b",
     ageClass == "Mature" & species == "VM" ~ "c",
     ageClass == "Mature" & species == "VV" ~ "d",
-    TRUE ~ NA_character_  # default case to handle any unspecified combinations
+    TRUE ~ NA_character_  
   ))
 
+lygra_data <- lygra_data %>%
+  mutate(species = recode(species, "Calluna vulgaris" = "CV", "Vaccinium myrtillus" = "VM", "Empetrum nigrum" = "EN", "Vaccinium vitis-idaea" = "VV"))
 
 # Calculate the y position for annotations
 y_positions <- lygra_data %>%
   group_by(species, DroughtTrt, ageClass) %>%
-  summarize(y_position = max(LDMC) * 1.05, .groups = "drop")  
+  summarize(y_position = max(LDMC) * 1.05, .groups = "drop")
+
 # Merge annotation labels with their y positions
 annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
 
-# Now let's create the plot
-p <- ggplot(lygra_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
-  geom_boxplot(position = position_dodge(width = dodge_width)) +
-  geom_point(data = emm_ldmc_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)),
-             position = position_dodge(width = dodge_width), size = 1.5) +
+p1 <- ggplot(lygra_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
+  geom_boxplot(position = position_dodge(width = 0.75)) +
+  geom_point(data = emm_ldmc_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)), position = position_dodge(width = 0.75), size = 1.5) +
+  geom_text(data = annotations, aes(x = species, y = y_position, label = label), position = position_dodge(width = 0.75), size = 3.5, fontface = "bold", vjust = -0.5) +
   facet_wrap(~ ageClass, scales = "free") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 0, hjust = 1, size = 14, face = "bold"),
         axis.text.y = element_text(size = 14, face = "bold"),
         axis.title.x = element_text(size = 14, face = "bold"),
         axis.title.y = element_text(size = 14, face = "bold"),
-        legend.text = element_text(size = 12), 
+        legend.text = element_text(size = 12),
         legend.title = element_text(size = 14, face = "bold"),
-        strip.text = element_text(size = 12, face = "bold")) +
-  labs(title = "LDMC variability",
-       x = "Species",
-       y = "LDMC",
-       fill = "Drought Treatment", color = "Drought Treatment") +
-  scale_fill_manual(name = "Drought Treatment", 
-                    values = c("Amb (0)" = "blue", "Ext (90)" = "skyblue"),
-                    labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
-  scale_color_manual(name = "Drought Treatment",
-                     values = c("Amb (0)" = "salmon", "Ext (90)" = "salmon"),
-                     labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
-  geom_text(data = annotations, aes(x = species, y = y_position, label = label),
-            position = position_dodge(width = dodge_width), size = 3.5, fontface = "bold", vjust = -0.5)  
+        strip.text = element_text(size = 12, face = "bold"),
+        legend.position = "none") + 
+  labs(x = "Species", y = "LDMC", fill = "Drought Treatment", color = "Drought Treatment") +
+  scale_fill_manual(name = "Drought Treatment", values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"), labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  scale_color_manual(name = "Drought Treatment", values = c("Amb (0)" = "black", "Ext (90)" = "black"), labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought"))
+
 # Print the plot
-print(p)
-# Save the plot
-ggsave("LDMC_plot_adjusted.png", plot = p, width = 7, height = 4, dpi = 300)
+print(p1)
+ggsave("LDMC_plot_adjusted.png", plot = p1, width = 7, height = 5, dpi = 300)
 
 ```
 
@@ -552,7 +513,6 @@ summary(emm_age2)
 ```
 
 ```{r}
-# Check and load required packages
 if (!requireNamespace("emmeans", quietly = TRUE)) {
   install.packages("emmeans")
 }
@@ -611,7 +571,7 @@ y_positions <- lygra_data %>%
 # Merge annotation labels with their y positions
 annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
 
-p <- ggplot(lygra_data, aes(x = species, y = log(SLA), fill = DroughtTrt)) +
+p2 <- ggplot(lygra_data, aes(x = species, y = log(SLA), fill = DroughtTrt)) +
   geom_boxplot(position = position_dodge(width = dodge_width)) +
   geom_point(data = emm_sla_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)),
              position = position_dodge(width = dodge_width), size = 1.5) +
@@ -621,25 +581,23 @@ p <- ggplot(lygra_data, aes(x = species, y = log(SLA), fill = DroughtTrt)) +
         axis.text.y = element_text(size = 14, face = "bold"),
         axis.title.x = element_text(size = 14, face = "bold"),
         axis.title.y = element_text(size = 14, face = "bold"),
-        legend.text = element_text(size = 12), 
-        legend.title = element_text(size = 14, face = "bold"),
-        strip.text = element_text(size = 12, face = "bold")) +
-  labs(title = "SLA variability",
-       x = "Species",
+        strip.text = element_text(size = 12, face = "bold"),
+        legend.position = "none") + 
+  labs(x = "Species",
        y = "log (SLA) cm²/g",
        fill = "Drought Treatment", color = "Drought Treatment") +
   scale_fill_manual(name = "Drought Treatment", 
-                    values = c("Amb (0)" = "blue", "Ext (90)" = "skyblue"),
+                    values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"),
                     labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
   scale_color_manual(name = "Drought Treatment",
-                     values = c("Amb (0)" = "salmon", "Ext (90)" = "salmon"),
+                     values = c("Amb (0)" = "black", "Ext (90)" = "black"),
                      labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
   geom_text(data = annotations, aes(x = species, y = y_position, label = label),
             position = position_dodge(width = dodge_width), size = 3.5, fontface = "bold", vjust = 0)  
 
-print(p)
+print(p2)
 # Save the plot
-ggsave("sla_plot_adjusted.png", plot = p, width = 7, height = 4, dpi = 300)
+ggsave("sla_plot_adjusted.png", plot = p2, width = 7, height = 5, dpi = 300)
 
 
 ```
@@ -671,13 +629,10 @@ summary(emm_drought3)
 # 3. age effect
 emm_age <- emmeans(LY_h_s_d_a, pairwise ~ ageClass | species * DroughtTrt, adjust = "tukey")
 summary(emm_age)
-
-
 ```
 
 
 ```{r}
-# Check and load required packages
 if (!requireNamespace("emmeans", quietly = TRUE)) {
   install.packages("emmeans")
 }
@@ -735,7 +690,7 @@ y_positions <- lygra_data %>%
 # Merge annotation labels with their y positions
 annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
 
-p <- ggplot(lygra_data, aes(x = species, y = log(plant_height), fill = DroughtTrt)) +
+p3 <- ggplot(lygra_data, aes(x = species, y = log(plant_height), fill = DroughtTrt)) +
   geom_boxplot(position = position_dodge(width = dodge_width)) +
   geom_point(data = emm_height_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)),
              position = position_dodge(width = dodge_width), size = 1.5) +
@@ -745,25 +700,23 @@ p <- ggplot(lygra_data, aes(x = species, y = log(plant_height), fill = DroughtTr
         axis.text.y = element_text(size = 14, face = "bold"),
         axis.title.x = element_text(size = 14, face = "bold"),
         axis.title.y = element_text(size = 14, face = "bold"),
-        legend.text = element_text(size = 12), 
-        legend.title = element_text(size = 14, face = "bold"),
-        strip.text = element_text(size = 12, face = "bold")) +
-  labs(title = "Plant height variability",
-       x = "Species",
-       y = "log(Plant height) (cm)",
+        strip.text = element_text(size = 12, face = "bold"),
+        legend.position = "none") + 
+  labs(x = "Species",
+       y = "log (Plant height) (cm)",
        fill = "Drought Treatment", color = "Drought Treatment") +
   scale_fill_manual(name = "Drought Treatment", 
-                    values = c("Amb (0)" = "blue", "Ext (90)" = "skyblue"),
+                    values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"),
                     labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
   scale_color_manual(name = "Drought Treatment",
-                     values = c("Amb (0)" = "salmon", "Ext (90)" = "salmon"),
+                     values = c("Amb (0)" = "black", "Ext (90)" = "black"),
                      labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
   geom_text(data = annotations, aes(x = species, y = y_position, label = label),
             position = position_dodge(width = dodge_width), size = 3.5, fontface = "bold", vjust = 0)  
-# Print the plot
-print(p)
 
-ggsave("height_plot_adjusted.png", plot = p, width = 7, height = 4, dpi = 300)
+print(p3)
+
+ggsave("height_plot_adjusted.png", plot = p3, width = 7, height = 5, dpi = 300)
 
 ```
 
@@ -802,7 +755,6 @@ summary(emm_age)
 overlay three way interaction
 
 ```{r}
-# Check and load required packages
 if (!requireNamespace("emmeans", quietly = TRUE)) {
   install.packages("emmeans")
 }
@@ -852,12 +804,12 @@ annotations <- annotations %>%
 # Calculate the y position for annotations
 y_positions <- lygra_data %>%
   group_by(species, DroughtTrt, ageClass) %>%
-  summarize(y_position = max(mean_thickness) * 1.05, .groups = 'drop') # Adjust the multiplier as needed
+  summarize(y_position = max(mean_thickness) * 1.05, .groups = 'drop') 
 
 # Merge annotation labels with their y positions
 annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
 
-p <- ggplot(lygra_data, aes(x = species, y = mean_thickness, fill = DroughtTrt)) +
+p4 <- ggplot(lygra_data, aes(x = species, y = mean_thickness, fill = DroughtTrt)) +
   geom_boxplot(position = position_dodge(width = dodge_width)) +
   geom_point(data = emm_thickness_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)),
              position = position_dodge(width = dodge_width), size = 1.5) +
@@ -867,23 +819,24 @@ p <- ggplot(lygra_data, aes(x = species, y = mean_thickness, fill = DroughtTrt))
         axis.text.y = element_text(size = 14, face = "bold"),
         axis.title.x = element_text(size = 14, face = "bold"),
         axis.title.y = element_text(size = 14, face = "bold"),
-        legend.text = element_text(size = 12), 
-        legend.title = element_text(size = 14, face = "bold"),
-        strip.text = element_text(size = 12, face = "bold")) +
-  labs(title = "Leaf thickness variability",
-       x = "Species",
+        strip.text = element_text(size = 12, face = "bold"),
+        legend.position = "none") + 
+  labs(x = "Species",
        y = "Leaf thickness (mm)",
        fill = "Drought Treatment", color = "Drought Treatment") +
   scale_fill_manual(name = "Drought Treatment", 
-                    values = c("Amb (0)" = "blue", "Ext (90)" = "skyblue"),
+                    values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"),
                     labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
   scale_color_manual(name = "Drought Treatment",
-                     values = c("Amb (0)" = "salmon", "Ext (90)" = "salmon"),
+                     values = c("Amb (0)" = "black", "Ext (90)" = "black"),
                      labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
   geom_text(data = annotations, aes(x = species, y = y_position, label = label),
             position = position_dodge(width = dodge_width), size = 3.5, fontface = "bold", vjust = 0)  
-print(p)
-ggsave("thickness_plot_adjusted.png", plot = p, width = 7, height = 4, dpi = 300)
+
+# Print the plot
+print(p4)
+
+ggsave("thickness_plot_adjusted.png", plot = p4, width = 7, height = 5, dpi = 300)
 
 ```
 
@@ -918,7 +871,6 @@ summary(emm_age5)
 
 
 ```{r}
-# Check and load required packages
 if (!requireNamespace("emmeans", quietly = TRUE)) {
   install.packages("emmeans")
 }
@@ -942,7 +894,6 @@ emm_area_df <- summary(emm_a) %>%
 
 dodge_width <- 0.75
 
-# Create a data frame for annotations
 annotations <- data.frame(
   species = rep(c("CV", "EN", "VM", "VV"), times = 4),
   DroughtTrt = rep(c("Amb (0)", "Ext (90)"), each = 4),
@@ -966,15 +917,13 @@ annotations <- annotations %>%
     TRUE ~ NA_character_
   ))
 
-# Calculate the y position for annotations
 y_positions <- lygra_data %>%
   group_by(species, DroughtTrt, ageClass) %>%
-  summarize(y_position = max(log(leaf_area)) * 1.05, .groups = 'drop') # Adjust the multiplier as needed
+  summarize(y_position = max(leaf_area_transformed) * 1.1, .groups = "drop") 
 
-# Merge annotation labels with their y positions
 annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
 
-p <- ggplot(lygra_data, aes(x = species, y = leaf_area_transformed, fill = DroughtTrt)) +
+p5 <- ggplot(lygra_data, aes(x = species, y = leaf_area_transformed, fill = DroughtTrt)) +
   geom_boxplot(position = position_dodge(width = dodge_width)) +
   geom_point(data = emm_area_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)),
              position = position_dodge(width = dodge_width), size = 1.5) +
@@ -984,48 +933,85 @@ p <- ggplot(lygra_data, aes(x = species, y = leaf_area_transformed, fill = Droug
         axis.text.y = element_text(size = 14, face = "bold"),
         axis.title.x = element_text(size = 14, face = "bold"),
         axis.title.y = element_text(size = 14, face = "bold"),
-        legend.text = element_text(size = 12), 
-        legend.title = element_text(size = 14, face = "bold"),
-        strip.text = element_text(size = 12, face = "bold")) +
-  labs(title = "Leaf area variability",
-       x = "Species",
-       y = "Leaf area (cm²)",
+        strip.text = element_text(size = 12, face = "bold"),
+        legend.position = "none") + # This line removes the legends
+  labs(x = "Species",
+       y = "Log (Leaf area (cm²))",
        fill = "Drought Treatment", color = "Drought Treatment") +
   scale_fill_manual(name = "Drought Treatment", 
-                    values = c("Amb (0)" = "blue", "Ext (90)" = "skyblue"),
+                    values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"),
                     labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
   scale_color_manual(name = "Drought Treatment",
-                     values = c("Amb (0)" = "salmon", "Ext (90)" = "salmon"),
+                     values = c("Amb (0)" = "black", "Ext (90)" = "black"),
                      labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
   geom_text(data = annotations, aes(x = species, y = y_position, label = label),
             position = position_dodge(width = dodge_width), size = 3.5, fontface = "bold", vjust = -0.5)
 
-print(p)
-ggsave("area_plot_adjusted.png", plot = p, width = 7, height = 4, dpi = 300)
+# Print the plot
+print(p5)
+
+ggsave("area_plot_adjusted.png", plot = p5, width = 7, height = 5, dpi = 300)
 
 ```
 
+
+```{r}
+p1 <- p1 + annotate("text", x = Inf, y = Inf, label = "(a)", hjust = 1.1, vjust = 1.1, size = 5, fontface = "bold")
+p3 <- p3 + annotate("text", x = Inf, y = Inf, label = "(e)", hjust = 1.1, vjust = 1.1, size = 5, fontface = "bold")
+p4 <- p4 + annotate("text", x = Inf, y = Inf, label = "(c)", hjust = 1.1, vjust = 1.1, size = 5, fontface = "bold")
+p5 <- p5 + annotate("text", x = Inf, y = Inf, label = "(d)", hjust = 1.1, vjust = 1.1, size = 5, fontface = "bold")
+p2 <- p2 + annotate("text", x = Inf, y = Inf, label = "(b)", hjust = 1.1, vjust = 1.1, size = 5, fontface = "bold")
+
+empty_plot <- ggplot() + 
+  theme_void() +
+  theme(plot.margin = margin(0, 0, 0, 0, "cm"),
+        plot.background = element_rect(fill = "transparent", colour = NA),  # Hide plot border
+        panel.background = element_rect(fill = "transparent", colour = NA))  # Ensure panel is transparent
+
+
+library(cowplot)
+
+# Assuming p1, p2, p3, and p4 are your ggplot objects
+combined_plotA <- plot_grid(
+  p1, p2,
+  p4, p5,
+  p3, empty_plot,
+  ncol = 2,   # Number of columns
+  align = 'v' # Align vertically
+)
+print(combined_plotA)
+
+combined_plotB <- plot_grid(
+  p3, empty_plot, 
+  ncol = 2, 
+  align = 'v'
+)
+ggsave("combined_plotA.pdf", combined_plotA, bg = "transparent", width = 9, height = 12)
+
+```
+
+
 tabulating the anova summary
 ```{r}
-extract_interaction_p <- function(anova_model) {
-  term <- rownames(anova_model)[nrow(anova_model)]
-  p_value <- anova_model[nrow(anova_model), "Pr(>F)"]
-  c(term = term, p_value = p_value)
-}
-
-interaction_ldmc <- extract_interaction_p(anova_ldmc)
-interaction_sla <- extract_interaction_p(anova_sla)
-interaction_h <- extract_interaction_p(anova_h)
-interaction_t <- extract_interaction_p(anova_t)
-
-# Combine into a data frame
-interactions_df <- data.frame(
-  Trait = c("LDMC", "SLA", "Height", "Thickness"),
-  Interaction_Term = c(interaction_ldmc["term"], interaction_sla["term"], interaction_h["term"], interaction_t["term"]),
-  P_Value = c(interaction_ldmc["p_value"], interaction_sla["p_value"], interaction_h["p_value"], interaction_t["p_value"])
-)
-# save the table to a CSV file
-write.csv(interactions_df, "ANOVA_Summary_Interactions.csv", row.names = FALSE)
+# extract_interaction_p <- function(anova_model) {
+#   term <- rownames(anova_model)[nrow(anova_model)]
+#   p_value <- anova_model[nrow(anova_model), "Pr(>F)"]
+#   c(term = term, p_value = p_value)
+# }
+# 
+# interaction_ldmc <- extract_interaction_p(anova_ldmc)
+# interaction_sla <- extract_interaction_p(anova_sla)
+# interaction_h <- extract_interaction_p(anova_h)
+# interaction_t <- extract_interaction_p(anova_t)
+# 
+# # Combine into a data frame
+# interactions_df <- data.frame(
+#   Trait = c("LDMC", "SLA", "Height", "Thickness"),
+#   Interaction_Term = c(interaction_ldmc["term"], interaction_sla["term"], interaction_h["term"], interaction_t["term"]),
+#   P_Value = c(interaction_ldmc["p_value"], interaction_sla["p_value"], interaction_h["p_value"], interaction_t["p_value"])
+# )
+# # save the table to a CSV file
+# write.csv(interactions_df, "ANOVA_Summary_Interactions.csv", row.names = FALSE)
 
 ```
 
@@ -1036,6 +1022,9 @@ write.csv(interactions_df, "ANOVA_Summary_Interactions.csv", row.names = FALSE)
 # Filter the data for siteID tjøtta
 tjøtta_data <- filtered_data %>%
   filter(siteID == "Tjøtta")
+# Adjusting ageClass in the main dataset
+tjøtta_data$ageClass <- gsub("Mature", "M", tjøtta_data$ageClass)
+tjøtta_data$ageClass <- gsub("Pioneer", "P", tjøtta_data$ageClass)
 view(tjøtta_data)
 ```
 
@@ -1067,41 +1056,69 @@ summary(emm_tj_ageclass)
 ```
 
 ```{r}
-if(!requireNamespace("emmeans", quietly = TRUE)) install.packages("emmeans")
-if(!requireNamespace("pbkrtest", quietly = TRUE)) install.packages("pbkrtest")
-
+if (!requireNamespace("emmeans", quietly = TRUE)) install.packages("emmeans")
+library(emmeans)
+if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")
+library(dplyr)
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+library(ggplot2)
 
 # Calculate estimated marginal means for the interaction
 emm_ldmc_tj <- emmeans(tj_LDMC_s_d_a, ~ DroughtTrt * species * ageClass)
 
 # Convert EMMs to a dataframe for plotting
-emm_tj <- summary(emm_ldmc_tj) %>%
-  as.data.frame()
+emm_ldmc_df_tj <- summary(emm_ldmc_tj) %>%
+  as.data.frame() %>%
+  mutate(species = recode(species, "Calluna vulgaris" = "CV", "Vaccinium myrtillus" = "VM", "Empetrum nigrum" = "EN", "Vaccinium vitis-idaea" = "VV"))
 
-# Define the position dodge width
-dodge_width <- 0.75
+# data frame for annotations
+annotations <- data.frame(
+  species = rep(c("CV", "EN", "VM", "VV"), times = 4),
+  DroughtTrt = rep(c("Amb (0)", "Ext (90)"), each = 4),
+  ageClass = rep(c("Pioneer", "Mature"), each = 8),
+  stringsAsFactors = FALSE
+)
 
-# Plotting with boxplots for the raw data
-p <- ggplot(tjøtta_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
-  geom_boxplot(position = position_dodge(width = dodge_width)) +
-  # Overlay the EMM predictions as points for clarity on the model's fit
-  # Ensure that the position dodge here matches the dodge for the boxplot
-  geom_point(data = emm_tj, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, ageClass)),
-             position = position_dodge(width = dodge_width), size = 3) +
-  # Facet by ageClass to compare across age classes
+annotations <- annotations %>%
+  mutate(label = case_when(
+    ageClass == "Pioneer" & species == "CV" ~ "f",
+    ageClass == "Pioneer" & species == "EN" ~ "g",
+    ageClass == "Pioneer" & species == "VM" ~ "h",
+    ageClass == "Pioneer" & species == "VV" ~ "i",
+    ageClass == "Mature" & species == "CV"  & DroughtTrt == "Amb (0)" ~ "a",
+    ageClass == "Mature" & species == "CV"  & DroughtTrt == "Ext (90)" ~ "b",
+    ageClass == "Mature" & species == "EN" ~ "c",
+    ageClass == "Mature" & species == "VM" ~ "d",
+    ageClass == "Mature" & species == "VV" ~ "e",
+    TRUE ~ NA_character_  
+  ))
+
+tjøtta_data <- tjøtta_data %>%
+  mutate(species = recode(species, "Calluna vulgaris" = "CV", "Vaccinium myrtillus" = "VM", "Empetrum nigrum" = "EN", "Vaccinium vitis-idaea" = "VV"))
+
+# Calculate the y position for annotations
+y_positions <- tjøtta_data %>%
+  group_by(species, DroughtTrt, ageClass) %>%
+  summarize(y_position = max(LDMC) * 1.05, .groups = "drop")
+
+# Merge annotation labels with their y positions
+annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
+
+# Creating the plot
+p6 <- ggplot(tjøtta_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
+  geom_boxplot(position = position_dodge(width = 0.75)) +
+  geom_point(data = emm_ldmc_df_tj, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)), position = position_dodge(width = 0.75), size = 1.5) +
+  geom_text(data = annotations, aes(x = species, y = y_position, label = label), position = position_dodge(width = 0.75), size = 3.5, fontface = "bold", vjust = -0.5) +
   facet_wrap(~ ageClass, scales = "free") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(title = "LDMC by Treatment, Species, and Age Class",
-       x = "Species",
-       y = "LDMC",
-       fill = "Drought Treatment", color = "Drought Treatment") +
-  scale_fill_manual(values = c("Amb (0)" = "lightblue", "Ext (90)" = "salmon")) +
-  scale_color_manual(values = c("Amb (0)" = "blue", "Ext (90)" = "red"))
+  theme(axis.text.x = element_text(angle = 0, hjust = 1, size = 14, face = "bold"), axis.text.y = element_text(size = 14, face = "bold"), axis.title.x = element_text(size = 14, face = "bold"), axis.title.y = element_text(size = 14, face = "bold"), legend.text = element_text(size = 12), legend.title = element_text(size = 14, face = "bold"), strip.text = element_text(size = 12, face = "bold")) +
+  labs(title = "LDMC variability", x = "Species", y = "LDMC", fill = "Drought Treatment", color = "Drought Treatment") +
+  scale_fill_manual(name = "Drought Treatment", values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"), labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  scale_color_manual(name = "Drought Treatment", values = c("Amb (0)" = "black", "Ext (90)" = "black"), labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought"))
 
-# Display the plot
-print(p)
-
+# Print the plot
+print(p6)
+ggsave("LDMCtj_plot_adjusted.png", plot = p6, width = 7, height = 5, dpi = 300)
 
 ```
 
@@ -1135,40 +1152,88 @@ summary(emm_tj_ageclass2)
 
 
 ```{r}
-if(!requireNamespace("emmeans", quietly = TRUE)) install.packages("emmeans")
-if(!requireNamespace("pbkrtest", quietly = TRUE)) install.packages("pbkrtest")
+if (!requireNamespace("emmeans", quietly = TRUE)) {
+  install.packages("emmeans")
+}
+library(emmeans)
 
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+  install.packages("dplyr")
+}
+library(dplyr)
 
 # Calculate estimated marginal means for the interaction
-emm_height_tj <- emmeans(tj_height_s_d_a, ~ DroughtTrt * species * ageClass)
+emm_htj <- emmeans(tj_height_s_d_a, ~ DroughtTrt * species * ageClass)
 
 # Convert EMMs to a dataframe for plotting
-emm_tj <- summary(emm_height_tj) %>%
-  as.data.frame()
+emm_height_df <- summary(emm_htj) %>%
+  as.data.frame() %>%
+  mutate(species = recode(species,
+                          "Calluna vulgaris" = "CV",
+                          "Vaccinium myrtillus" = "VM",
+                          "Empetrum nigrum" = "EN",
+                          "Vaccinium vitis-idaea" = "VV"))
 
-# Define the position dodge width
 dodge_width <- 0.75
 
-# Plotting with boxplots for the raw data
-p <- ggplot(tjøtta_data, aes(x = species, y = log(plant_height), fill = DroughtTrt)) +
+# Create a data frame for annotations
+annotations <- data.frame(
+  species = rep(c("CV", "EN", "VM", "VV"), times = 4),
+  DroughtTrt = rep(c("Amb (0)", "Ext (90)"), each = 4),
+  ageClass = rep(c("Pioneer", "Mature"), each = 8),
+  stringsAsFactors = FALSE
+)
+
+#mutate the label based on conditions
+annotations <- annotations %>%
+  mutate(label = case_when(
+    ageClass == "Pioneer" & species == "CV" ~ "e",
+    ageClass == "Pioneer" & species == "EN" ~ "f",
+    ageClass == "Pioneer" & species == "VM" ~ "g",
+    ageClass == "Pioneer" & species == "VV" ~ "h",
+    ageClass == "Mature" & species == "CV" ~ "a",
+    ageClass == "Mature" & species == "EN" ~ "b",
+    ageClass == "Mature" & species == "VM" ~ "c",
+    ageClass == "Mature" & species == "VV" ~ "d",  
+    TRUE ~ NA_character_  
+  ))
+
+# Calculate the y position for annotations
+y_positions <- tjøtta_data %>%
+  group_by(species, DroughtTrt, ageClass) %>%
+  summarize(y_position = max(log(plant_height)) * 1.05, .groups = 'drop') 
+
+# Merge annotation labels with their y positions
+annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
+
+p7 <- ggplot(tjøtta_data, aes(x = species, y = log(plant_height), fill = DroughtTrt)) +
   geom_boxplot(position = position_dodge(width = dodge_width)) +
-  # Overlay the EMM predictions as points for clarity on the model's fit
-  # Ensure that the position dodge here matches the dodge for the boxplot
-  geom_point(data = emm_tj, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, ageClass)),
-             position = position_dodge(width = dodge_width), size = 3) +
-  # Facet by ageClass to compare across age classes
+  geom_point(data = emm_height_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)),
+             position = position_dodge(width = dodge_width), size = 1.5) +
   facet_wrap(~ ageClass, scales = "free") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(title = "LDMC by Treatment, Species, and Age Class",
+  theme(axis.text.x = element_text(angle = 0, hjust = 1, size = 14, face = "bold"),
+        axis.text.y = element_text(size = 14, face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 14, face = "bold"),
+        strip.text = element_text(size = 12, face = "bold")) +
+  labs(title = "Plant height variability",
        x = "Species",
-       y = "Plant Height",
+       y = "log (Plant height) (cm)",
        fill = "Drought Treatment", color = "Drought Treatment") +
-  scale_fill_manual(values = c("Amb (0)" = "lightblue", "Ext (90)" = "salmon")) +
-  scale_color_manual(values = c("Amb (0)" = "blue", "Ext (90)" = "red"))
+  scale_fill_manual(name = "Drought Treatment", 
+                    values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"),
+                    labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  scale_color_manual(name = "Drought Treatment",
+                     values = c("Amb (0)" = "black", "Ext (90)" = "black"),
+                     labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  geom_text(data = annotations, aes(x = species, y = y_position, label = label),
+            position = position_dodge(width = dodge_width), size = 3.5, fontface = "bold", vjust = 0)  
+print(p7)
 
-# Display the plot
-print(p)
+ggsave("heighttj_plot_adjusted.png", plot = p7, width = 7, height = 5, dpi = 300)
 
 ```
 
@@ -1203,43 +1268,95 @@ summary(emm_tj_ageclass3)
 ```
 
 ```{r}
-if(!requireNamespace("emmeans", quietly = TRUE)) install.packages("emmeans")
-if(!requireNamespace("pbkrtest", quietly = TRUE)) install.packages("pbkrtest")
+if (!requireNamespace("emmeans", quietly = TRUE)) {
+  install.packages("emmeans")
+}
+library(emmeans)
 
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+  install.packages("dplyr")
+}
+library(dplyr)
 
 # Calculate estimated marginal means for the interaction
-emm_sla_tj <- emmeans(tj_sla_s_d_a, ~ DroughtTrt * species * ageClass)
+emm_slatj <- emmeans(tj_sla_s_d_a, ~ DroughtTrt * species * ageClass)
 
 # Convert EMMs to a dataframe for plotting
-emm_tj <- summary(emm_sla_tj) %>%
-  as.data.frame()
+emm_sla_df <- summary(emm_slatj) %>%
+  as.data.frame() %>%
+  mutate(species = recode(species,
+                          "Calluna vulgaris" = "CV",
+                          "Vaccinium myrtillus" = "VM",
+                          "Empetrum nigrum" = "EN",
+                          "Vaccinium vitis-idaea" = "VV"))
 
-# Define the position dodge width
+# dodge width for the boxplots 
 dodge_width <- 0.75
 
-# Plotting with boxplots for the raw data
-p <- ggplot(tjøtta_data, aes(x = species, y = log(SLA), fill = DroughtTrt)) +
+# Create a data frame for annotations
+annotations <- data.frame(
+  species = rep(c("CV", "EN", "VM", "VV"), times = 4),
+  DroughtTrt = rep(c("Amb (0)", "Ext (90)"), each = 4),
+  ageClass = rep(c("Pioneer", "Mature"), each = 8),
+  stringsAsFactors = FALSE
+)
+
+#  mutate the label based on conditions
+annotations <- annotations %>%
+  mutate(label = case_when(
+    ageClass == "Pioneer" & species == "CV" ~ "f",
+    ageClass == "Pioneer" & species == "EN" ~ "g",
+    ageClass == "Pioneer" & species == "VM" & DroughtTrt == "Amb (0)" ~ "h",
+    ageClass == "Pioneer" & species == "VM" & DroughtTrt == "Ext (90)" ~ "i",
+    ageClass == "Pioneer" & species == "VV" ~ "l",
+    ageClass == "Mature" & species == "CV" & DroughtTrt == "Amb (0)"~ "a",
+    ageClass == "Mature" & species == "CV" & DroughtTrt == "Ext (90)" ~ "b",
+    ageClass == "Mature" & species == "EN" ~ "c",
+    ageClass == "Mature" & species == "VM" ~ "d",
+    ageClass == "Mature" & species == "VV" ~ "e",
+    TRUE ~ NA_character_  
+  ))
+
+# Calculate the y position for annotations
+y_positions <- tjøtta_data %>%
+  group_by(species, DroughtTrt, ageClass) %>%
+  summarize(y_position = max(log(SLA)) * 1.05, .groups = "drop") 
+# Merge annotation labels with their y positions
+annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
+
+p8 <- ggplot(tjøtta_data, aes(x = species, y = log(SLA), fill = DroughtTrt)) +
   geom_boxplot(position = position_dodge(width = dodge_width)) +
-  # Overlay the EMM predictions as points for clarity on the model's fit
-  geom_point(data = emm_tj, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, ageClass)),
-             position = position_dodge(width = dodge_width), size = 3) +
-  # Facet by ageClass to compare across age classes
+  geom_point(data = emm_sla_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)),
+             position = position_dodge(width = dodge_width), size = 1.5) +
   facet_wrap(~ ageClass, scales = "free") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(title = "SLA by Treatment, Species, and Age Class",
+  theme(axis.text.x = element_text(angle = 0, hjust = 1, size = 14, face = "bold"),
+        axis.text.y = element_text(size = 14, face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 14, face = "bold"),
+        strip.text = element_text(size = 12, face = "bold")) +
+  labs(title = "SLA variability",
        x = "Species",
-       y = "SLA",
+       y = "log (SLA cm²/g)",
        fill = "Drought Treatment", color = "Drought Treatment") +
-  scale_fill_manual(values = c("Amb (0)" = "lightblue", "Ext (90)" = "salmon")) +
-  scale_color_manual(values = c("Amb (0)" = "blue", "Ext (90)" = "red"))
+  scale_fill_manual(name = "Drought Treatment", 
+                    values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"),
+                    labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  scale_color_manual(name = "Drought Treatment",
+                     values = c("Amb (0)" = "black", "Ext (90)" = "black"),
+                     labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  geom_text(data = annotations, aes(x = species, y = y_position, label = label),
+            position = position_dodge(width = dodge_width), size = 3.5, fontface = "bold", vjust = 0)  
 
-# Display the plot
-print(p)
+print(p8)
+# Save the plot
+ggsave("slatj_plot_adjusted.png", plot = p8, width = 7, height = 5, dpi = 300)
+
+
 
 ```
-
-
 
 
 **trait 4: mean thickness*
@@ -1260,61 +1377,102 @@ emm_tj_species4 <- emmeans(tj_t_s_d_a, pairwise ~ species | DroughtTrt * ageClas
 summary(emm_tj_species4)
 
 #2. drought effect
-# assessing the effect of drought across all species and age classes
 emm_tj_drought4 <- emmeans(tj_t_s_d_a, pairwise ~ DroughtTrt | species * ageClass, adjust = "tukey")
 summary(emm_tj_drought4)
 
 # 3. age effect
-# assessing the effect of age class within each species and drought treatment
 emm_tj_ageclass4 <- emmeans(tj_t_s_d_a, pairwise ~ ageClass | species * DroughtTrt, adjust = "tukey")
 summary(emm_tj_ageclass4)
 ```
 
 
 ```{r}
-if(!requireNamespace("emmeans", quietly = TRUE)) install.packages("emmeans")
-if(!requireNamespace("pbkrtest", quietly = TRUE)) install.packages("pbkrtest")
+if (!requireNamespace("emmeans", quietly = TRUE)) {
+  install.packages("emmeans")
+}
+
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+  install.packages("dplyr")
+}
+library(dplyr)
 
 
 # Calculate estimated marginal means for the interaction
-emm_thickness_tj <- emmeans(tj_t_s_d_a, ~ DroughtTrt * species * ageClass)
+emm_thickness <- emmeans(tj_t_s_d_a, ~ DroughtTrt * species * ageClass)
 
 # Convert EMMs to a dataframe for plotting
-emm_tj <- summary(emm_thickness_tj) %>%
-  as.data.frame()
+emm_thickness_df <- summary(emm_thickness) %>%
+  as.data.frame() %>%
+  mutate(species = recode(species,
+                          "Calluna vulgaris" = "CV",
+                          "Vaccinium myrtillus" = "VM",
+                          "Empetrum nigrum" = "EN",
+                          "Vaccinium vitis-idaea" = "VV"))
 
-# Define the position dodge width
 dodge_width <- 0.75
 
-# Plotting with boxplots for the raw data
-p <- ggplot(tjøtta_data, aes(x = species, y = mean_thickness, fill = DroughtTrt)) +
+annotations <- data.frame(
+  species = rep(c("CV", "EN", "VM", "VV"), times = 4),
+  DroughtTrt = rep(c("Amb (0)", "Ext (90)"), each = 4),
+  ageClass = rep(c("Pioneer", "Mature"), each = 8),
+  stringsAsFactors = FALSE
+)
+
+annotations <- annotations %>%
+  mutate(label = case_when(
+    ageClass == "Pioneer" & species == "CV" ~ "e",
+    ageClass == "Pioneer" & species == "EN" ~ "f",
+    ageClass == "Pioneer" & species == "VM" ~ "g",
+    ageClass == "Pioneer" & species == "VV" ~ "h",
+    ageClass == "Mature" & species == "CV" ~ "a",
+    ageClass == "Mature" & species == "EN" ~ "b",
+    ageClass == "Mature" & species == "VM" ~ "c",
+    ageClass == "Mature" & species == "VV" ~ "d",  
+    TRUE ~ NA_character_  
+  ))
+
+y_positions <- tjøtta_data %>%
+  group_by(species, DroughtTrt, ageClass) %>%
+  summarize(y_position = max(mean_thickness) * 1.05, .groups = 'drop') 
+
+annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
+
+p9 <- ggplot(tjøtta_data, aes(x = species, y = mean_thickness, fill = DroughtTrt)) +
   geom_boxplot(position = position_dodge(width = dodge_width)) +
-  # Overlay the EMM predictions as points for clarity on the model's fit
-  # Ensure that the position dodge here matches the dodge for the boxplot
-  geom_point(data = emm_tj, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, ageClass)),
-             position = position_dodge(width = dodge_width), size = 3) +
-  # Facet by ageClass to compare across age classes
+  geom_point(data = emm_thickness_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)),
+             position = position_dodge(width = dodge_width), size = 1.5) +
   facet_wrap(~ ageClass, scales = "free") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(title = "Thickness by Treatment, Species, and Age Class",
+  theme(axis.text.x = element_text(angle = 0, hjust = 1, size = 14, face = "bold"),
+        axis.text.y = element_text(size = 14, face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 14, face = "bold"),
+        strip.text = element_text(size = 12, face = "bold")) +
+  labs(title = "Leaf thickness variability",
        x = "Species",
-       y = "Thickness",
+       y = "Leaf thickness (mm)",
        fill = "Drought Treatment", color = "Drought Treatment") +
-  scale_fill_manual(values = c("Amb (0)" = "lightblue", "Ext (90)" = "salmon")) +
-  scale_color_manual(values = c("Amb (0)" = "blue", "Ext (90)" = "red"))
-
-# Display the plot
-print(p)
-
+  scale_fill_manual(name = "Drought Treatment", 
+                    values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"),
+                    labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  scale_color_manual(name = "Drought Treatment",
+                     values = c("Amb (0)" = "black", "Ext (90)" = "black"),
+                     labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  geom_text(data = annotations, aes(x = species, y = y_position, label = label),
+            position = position_dodge(width = dodge_width), size = 3.5, fontface = "bold", vjust = 0)  
+print(p9)
+ggsave("thicknesstj_plot_adjusted.png", plot = p9, width = 7, height = 5, dpi = 300)
 ```
-
-
 
 
  trait 5. leaf area
 ```{r}
-tj_area_s_d_a <- lmer(log(leaf_area) ~ DroughtTrt * species * ageClass +
+#use log plus 1 transformation because leaf area has values which are almost zero
+tjøtta_data$leaf_area_transformed <- log(tjøtta_data$leaf_area + 1)
+
+tj_area_s_d_a <- lmer(leaf_area_transformed ~ DroughtTrt * species * ageClass +
                                     (1 | DroughNet_plotID), 
                                   data = tjøtta_data)
 summary(tj_area_s_d_a)
@@ -1329,57 +1487,135 @@ emm_tj_species5 <- emmeans(tj_area_s_d_a, pairwise ~ species | DroughtTrt * ageC
 summary(emm_tj_species5)
 
 #2. drought effect
-# assessing the effect of drought across all species and age classes
 emm_tj_drought5 <- emmeans(tj_area_s_d_a, pairwise ~ DroughtTrt | species * ageClass, adjust = "tukey")
 summary(emm_tj_drought5)
 
 # 3. age effect
-# assessing the effect of age class within each species and drought treatment
 emm_tj_ageclass5 <- emmeans(tj_area_s_d_a, pairwise ~ ageClass | species * DroughtTrt, adjust = "tukey")
 summary(emm_tj_ageclass5)
 ```
 
 
 ```{r}
-if(!requireNamespace("emmeans", quietly = TRUE)) install.packages("emmeans")
-if(!requireNamespace("pbkrtest", quietly = TRUE)) install.packages("pbkrtest")
+if (!requireNamespace("emmeans", quietly = TRUE)) {
+  install.packages("emmeans")
+}
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+  install.packages("dplyr")
+}
+library(dplyr)
 
+emm_a <- emmeans(tj_area_s_d_a, ~ DroughtTrt * species * ageClass)
 
-# Calculate estimated marginal means for the interaction
-emm_height_tj <- emmeans(tj_area_s_d_a, ~ DroughtTrt * species * ageClass)
+emm_area_df <- summary(emm_a) %>%
+  as.data.frame() %>%
+  mutate(species = recode(species,
+                          "Calluna vulgaris" = "CV",
+                          "Vaccinium myrtillus" = "VM",
+                          "Empetrum nigrum" = "EN",
+                          "Vaccinium vitis-idaea" = "VV"))
 
-# Convert EMMs to a dataframe for plotting
-emm_tj <- summary(emm_height_tj) %>%
-  as.data.frame()
-
-# Define the position dodge width
 dodge_width <- 0.75
 
-# Plotting with boxplots for the raw data
-p <- ggplot(tjøtta_data, aes(x = species, y = log(leaf_area), fill = DroughtTrt)) +
+
+annotations <- data.frame(
+  species = rep(c("CV", "EN", "VM", "VV"), times = 4),
+  DroughtTrt = rep(c("Amb (0)", "Ext (90)"), each = 4),
+  ageClass = rep(c("Pioneer", "Mature"), each = 8),
+  stringsAsFactors = FALSE
+)
+
+annotations <- annotations %>%
+  mutate(label = case_when(
+    ageClass == "Pioneer" & species == "CV" ~ "g",
+    ageClass == "Pioneer" & species == "EN" ~ "h",
+    ageClass == "Pioneer" & species == "VM" & DroughtTrt == "Amb (0)" ~ "i",
+    ageClass == "Pioneer" & species == "VM" & DroughtTrt == "Ext (90)" ~ "j",
+    ageClass == "Pioneer" & species == "VV" & DroughtTrt == "Amb (0)" ~ "k",
+    ageClass == "Pioneer" & species == "VV" & DroughtTrt == "Ext (90)" ~ "l",
+    ageClass == "Mature" & species == "CV" ~ "a",
+    ageClass == "Mature" & species == "EN" ~ "b",
+    ageClass == "Mature" & species == "VM" & DroughtTrt == "Amb (0)" ~ "c",
+    ageClass == "Mature" & species == "VM" & DroughtTrt == "Ext (90)" ~ "d",
+    ageClass == "Mature" & species == "VV" & DroughtTrt == "Amb (0)" ~ "e",
+    ageClass == "Mature" & species == "VV" & DroughtTrt == "Ext (90)" ~ "f",
+    TRUE ~ NA_character_
+  ))
+
+y_positions <- tjøtta_data %>%
+  group_by(species, DroughtTrt, ageClass) %>%
+  summarize(y_position = max(leaf_area_transformed) * 1.1, .groups = 'drop') 
+
+
+annotations <- merge(annotations, y_positions, by = c("species", "DroughtTrt", "ageClass"))
+
+p10 <- ggplot(tjøtta_data, aes(x = species, y = leaf_area_transformed, fill = DroughtTrt)) +
   geom_boxplot(position = position_dodge(width = dodge_width)) +
-  # Overlay the EMM predictions as points for clarity on the model's fit
-  geom_point(data = emm_tj, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, ageClass)),
-             position = position_dodge(width = dodge_width), size = 3) +
-  # Facet by ageClass to compare across age classes
+  geom_point(data = emm_area_df, aes(x = species, y = emmean, color = DroughtTrt, group = interaction(DroughtTrt, species, ageClass)),
+             position = position_dodge(width = dodge_width), size = 1.5) +
   facet_wrap(~ ageClass, scales = "free") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(title = "Leaf Area by Treatment, Species, and Age Class",
+  theme(axis.text.x = element_text(angle = 0, hjust = 1, size = 14, face = "bold"),
+        axis.text.y = element_text(size = 14, face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 14, face = "bold"),
+        strip.text = element_text(size = 12, face = "bold")) +
+  labs(title = "Leaf area variability",
        x = "Species",
-       y = "Log(Leaf Area)",
+       y = "Log (Leaf area (cm²))",
        fill = "Drought Treatment", color = "Drought Treatment") +
-  scale_fill_manual(values = c("Amb (0)" = "lightblue", "Ext (90)" = "salmon")) +
-  scale_color_manual(values = c("Amb (0)" = "blue", "Ext (90)" = "red"))
-
-# Display the plot
-print(p)
-
+  scale_fill_manual(name = "Drought Treatment", 
+                    values = c("Amb (0)" = "grey", "Ext (90)" = "skyblue"),
+                    labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  scale_color_manual(name = "Drought Treatment",
+                     values = c("Amb (0)" = "black", "Ext (90)" = "black"),
+                     labels = c("Amb (0)" = "Ambient", "Ext (90)" = "Extreme Drought")) +
+  geom_text(data = annotations, aes(x = species, y = y_position, label = label),
+            position = position_dodge(width = dodge_width), size = 3.5, fontface = "bold", vjust = -0.5)
+print(p10)
+ggsave("areatj_plot_adjusted.png", plot = p10, width = 7, height = 5, dpi = 300)
 
 ```
 
 
-stop here
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1410,202 +1646,194 @@ stop here
 **plot model onto the ggplot** keep
 
 ```{r}
-ggplot(lygra_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
-  geom_boxplot() +
-  facet_grid(~ ageClass, scales = "free") +  # Facet only by ageClass
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), # vertical adjustment for x axis labels
-        plot.caption = element_text(hjust = 0.5)) + # Center the caption
-  labs(title = "LDMC vs Treatment by Species",
-       x = "Species",
-       y = "LDMC",
-       fill = "Drought Treatment",
-       caption = "Figure 3: LDMC Variation in Dwarf Shrubs Under Drought Conditions Across Different Successional Phases") +
-  scale_fill_manual(values = c("Amb (0)" = "darkblue", "Ext (90)" = "lightblue"))
-
-#fit model
-
-# Get fitted values directly from the model
-fitted_values <- predict(LY_LDMC_species_droughtTrt, re.form = NA)  
-
-lygra_data$fitted <- fitted_values
+# ggplot(lygra_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
+#   geom_boxplot() +
+#   facet_grid(~ ageClass, scales = "free") +  # Facet only by ageClass
+#   theme_bw() +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), # vertical adjustment for x axis labels
+#         plot.caption = element_text(hjust = 0.5)) + # Center the caption
+#   labs(title = "LDMC vs Treatment by Species",
+#        x = "Species",
+#        y = "LDMC",
+#        fill = "Drought Treatment",
+#        caption = "Figure 3: LDMC Variation in Dwarf Shrubs Under Drought Conditions Across Different Successional Phases") +
+#   scale_fill_manual(values = c("Amb (0)" = "darkblue", "Ext (90)" = "lightblue"))
+# 
+# #fit model
+# 
+# # Get fitted values directly from the model
+# fitted_values <- predict(LY_LDMC_species_droughtTrt, re.form = NA)  
+# 
+# lygra_data$fitted <- fitted_values
 
 # Assuming fitted_values has been added to filtered_data as shown above
-ggplot(lygra_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
-  geom_boxplot() +
-  geom_point(aes(y = fitted), position = position_dodge(width = 0.75), color = "red", size = 1.5) + # Add fitted values
-  facet_grid(~ ageClass, scales = "free") + # Facet only by ageClass
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), # Vertical adjustment for x axis labels
-        plot.caption = element_text(hjust = 0.5)) + 
-  labs(title = "LDMC vs Treatment by Species",
-       x = "Species",
-       y = "LDMC",
-       fill = "Drought Treatment",
-       caption = "Figure 3: LDMC Variation in Dwarf Shrubs Under Drought Conditions Across Different Successional Phases") +
-  scale_fill_manual(values = c("Amb (0)" = "darkblue", "Ext (90)" = "lightblue"))
-
-
+# ggplot(lygra_data, aes(x = species, y = LDMC, fill = DroughtTrt)) +
+#   geom_boxplot() +
+#   geom_point(aes(y = fitted), position = position_dodge(width = 0.75), color = "red", size = 1.5) + # Add fitted values
+#   facet_grid(~ ageClass, scales = "free") + # Facet only by ageClass
+#   theme_bw() +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), # Vertical adjustment for x axis labels
+#         plot.caption = element_text(hjust = 0.5)) + 
+#   labs(title = "LDMC vs Treatment by Species",
+#        x = "Species",
+#        y = "LDMC",
+#        fill = "Drought Treatment",
+#        caption = "Figure 3: LDMC Variation in Dwarf Shrubs Under Drought Conditions Across Different Successional Phases") +
+#   scale_fill_manual(values = c("Amb (0)" = "darkblue", "Ext (90)" = "lightblue"))
+# 
+# 
 
 
 #fiiting in the geom jitter plot
 
-# Get fitted values directly from the model
-fitted_values <- predict(LY_LDMC_species_droughtTrt, re.form = NA)  
-
-# Assuming 'fitted_values' is a vector of the same length as 'lygra_data'
-lygra_data$fitted <- fitted_values
-
-fitted_values$dodge_position <- as.numeric(lygra_data$DroughtTrt) - 1.5
-
-ggplot(lygra_data, aes(x = species, y = LDMC, group = DroughtTrt)) +
-  geom_jitter(aes(color = DroughtTrt), position = position_dodge(width = 0.5), size = 1.5, alpha = 0.7) +
-  geom_point(aes(y = fitted, color = DroughtTrt),  # Ensure 'fitted' is now recognized
-             position = position_dodge(width = 0.5), size = 3, shape = 16, color = "black") +
-  facet_grid(ageClass ~ siteID, scales = "free") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(title = "LDMC vs Treatment by Species", x = "Species", y = "LDMC", color = "Drought Treatment") +
-  scale_color_manual(values = c("Amb (0)" = "darkgreen", "Ext (90)" = "deeppink"))
+# # Get fitted values directly from the model
+# fitted_values <- predict(LY_LDMC_species_droughtTrt, re.form = NA)  
+# 
+# # Assuming 'fitted_values' is a vector of the same length as 'lygra_data'
+# lygra_data$fitted <- fitted_values
+# 
+# fitted_values$dodge_position <- as.numeric(lygra_data$DroughtTrt) - 1.5
+# 
+# ggplot(lygra_data, aes(x = species, y = LDMC, group = DroughtTrt)) +
+#   geom_jitter(aes(color = DroughtTrt), position = position_dodge(width = 0.5), size = 1.5, alpha = 0.7) +
+#   geom_point(aes(y = fitted, color = DroughtTrt),  # Ensure 'fitted' is now recognized
+#              position = position_dodge(width = 0.5), size = 3, shape = 16, color = "black") +
+#   facet_grid(ageClass ~ siteID, scales = "free") +
+#   theme_bw() +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+#   labs(title = "LDMC vs Treatment by Species", x = "Species", y = "LDMC", color = "Drought Treatment") +
+#   scale_color_manual(values = c("Amb (0)" = "darkgreen", "Ext (90)" = "deeppink"))
 
 ```
-
-
-
-
-
-
-
-
 
 **young and old leaves (lygra)**
 
 ```{r}
-# Subset the data for the specified species with young and old leaves, and for the Lygra site
-subset_data1 <- subset(droughtnet_data2_clean, species %in% c("Vaccinium vitis-idaea", "Empetrum nigrum") & siteID == "Lygra")
-
-# View the first few rows of the subsetted data
-View(subset_data1)
+# # Subset the data for the specified species with young and old leaves, and for the Lygra site
+# subset_data1 <- subset(droughtnet_data2_clean, species %in% c("Vaccinium vitis-idaea", "Empetrum nigrum") & siteID == "Lygra")
+# 
+# # View the first few rows of the subsetted data
+# View(subset_data1)
 
 ```
 
 **LDMC**
 
 ```{r}
-ldmc_three_way_interactions <- lmer(LDMC ~ species * DroughtTrt * leaf_age +
-                                (1 | DroughNet_plotID/plant_nr), 
-                              data = subset_data1)
-
-summary(ldmc_three_way_interactions)
-performance::check_model(ldmc_three_way_interactions, detrend = FALSE)
+# ldmc_three_way_interactions <- lmer(LDMC ~ species * DroughtTrt * leaf_age +
+#                                 (1 | DroughNet_plotID/plant_nr), 
+#                               data = subset_data1)
+# 
+# summary(ldmc_three_way_interactions)
+# performance::check_model(ldmc_three_way_interactions, detrend = FALSE)
 ```
 
 **SLA**
 
 ```{r}
-sla_three_way_interactions <- lmer(log(SLA) ~ species * DroughtTrt * leaf_age +
-                                (1 | DroughNet_plotID/plant_nr), 
-                              data = subset_data1)
-
-summary(sla_three_way_interactions)
-performance::check_model(sla_three_way_interactions, detrend = FALSE)
-anova(sla_three_way_interactions)
+# sla_three_way_interactions <- lmer(log(SLA) ~ species * DroughtTrt * leaf_age +
+#                                 (1 | DroughNet_plotID/plant_nr), 
+#                               data = subset_data1)
+# 
+# summary(sla_three_way_interactions)
+# performance::check_model(sla_three_way_interactions, detrend = FALSE)
+# anova(sla_three_way_interactions)
 ```
 
 **mean thickness**
 
 ```{r}
-thickness_three_way_interactions <- lmer(mean_thickness ~ species * DroughtTrt * leaf_age +
-                                (1 | DroughNet_plotID/plant_nr), 
-                              data = subset_data1)
-
-summary(thickness_three_way_interactions)
-performance::check_model(thickness_three_way_interactions, detrend = FALSE)
+# thickness_three_way_interactions <- lmer(mean_thickness ~ species * DroughtTrt * leaf_age +
+#                                 (1 | DroughNet_plotID/plant_nr), 
+#                               data = subset_data1)
+# 
+# summary(thickness_three_way_interactions)
+# performance::check_model(thickness_three_way_interactions, detrend = FALSE)
 ```
 
 **young and old leaves (tjøtta)**
 
 ```{r}
-# Subset the data for the specified species with young and old leaves, and for the Lygra site
-subset_data2 <- subset(droughtnet_data2_clean, species %in% c("Vaccinium vitis-idaea", "Empetrum nigrum") & siteID == "Tjøtta")
-
-# View the first few rows of the subsetted data
-View(subset_data2)
+# # Subset the data for the specified species with young and old leaves, and for the Lygra site
+# subset_data2 <- subset(droughtnet_data2_clean, species %in% c("Vaccinium vitis-idaea", "Empetrum nigrum") & siteID == "Tjøtta")
+# 
+# # View the first few rows of the subsetted data
+# View(subset_data2)
 ```
 
 **LDMC**
 
 ```{r}
-ldmc1_three_way_interactions <- lmer(LDMC ~ species * DroughtTrt * leaf_age +
-                                (1 | DroughNet_plotID/plant_nr), 
-                              data = subset_data2)
-
-summary(ldmc1_three_way_interactions)
-performance::check_model(ldmc1_three_way_interactions, detrend = FALSE)
+# ldmc1_three_way_interactions <- lmer(LDMC ~ species * DroughtTrt * leaf_age +
+#                                 (1 | DroughNet_plotID/plant_nr), 
+#                               data = subset_data2)
+# 
+# summary(ldmc1_three_way_interactions)
+# performance::check_model(ldmc1_three_way_interactions, detrend = FALSE)
 ```
 
 **SLA**
 
 ```{r}
-sla2_three_way_interactions <- lmer(log(SLA) ~ species * DroughtTrt * leaf_age +
-                                (1 | DroughNet_plotID/plant_nr), 
-                              data = subset_data2)
-
-summary(sla2_three_way_interactions)
-performance::check_model(sla2_three_way_interactions, detrend = FALSE)
+# sla2_three_way_interactions <- lmer(log(SLA) ~ species * DroughtTrt * leaf_age +
+#                                 (1 | DroughNet_plotID/plant_nr), 
+#                               data = subset_data2)
+# 
+# summary(sla2_three_way_interactions)
+# performance::check_model(sla2_three_way_interactions, detrend = FALSE)
 ```
 
 **mean thickness**
 
 ```{r}
-thickness3_three_way_interactions <- lmer(mean_thickness ~ species * DroughtTrt * leaf_age +
-                                (1 | DroughNet_plotID/plant_nr), 
-                              data = subset_data2)
-
-summary(thickness3_three_way_interactions)
-performance::check_model(thickness3_three_way_interactions, detrend = FALSE)
+# thickness3_three_way_interactions <- lmer(mean_thickness ~ species * DroughtTrt * leaf_age +
+#                                 (1 | DroughNet_plotID/plant_nr), 
+#                               data = subset_data2)
+# 
+# summary(thickness3_three_way_interactions)
+# performance::check_model(thickness3_three_way_interactions, detrend = FALSE)
 ```
 
 **CALLUNA SHOOT TYPE (lygra)**
 
 ```{r}
 # Create a data frame for Calluna vulgaris at the Lygra site and remove rows with NA values
-calluna_shoot <- droughtnet_data2_clean %>%
-  filter(species == "Calluna vulgaris" & siteID == "Lygra") %>%
-  drop_na()
-
-view(calluna_shoot)
+# calluna_shoot <- droughtnet_data2_clean %>%
+#   filter(species == "Calluna vulgaris" & siteID == "Lygra") %>%
+#   drop_na()
+# 
+# view(calluna_shoot)
 ```
 
 **LDMC**
 
 ```{r}
-shoot_type_lmdc3 <- lmer(LDMC ~ (calluna_shoot_type * DroughtTrt * ageClass) +
-                               (1 | DroughNet_plotID/plant_nr), 
-                             data = calluna_shoot)
-summary(shoot_type_lmdc3)
-
-performance::check_model(shoot_type_lmdc3, detrend = FALSE)
+# shoot_type_lmdc3 <- lmer(LDMC ~ (calluna_shoot_type * DroughtTrt * ageClass) +
+#                                (1 | DroughNet_plotID/plant_nr), 
+#                              data = calluna_shoot)
+# summary(shoot_type_lmdc3)
+# 
+# performance::check_model(shoot_type_lmdc3, detrend = FALSE)
 ```
 
 **SLA**
 
 ```{r}
-shoot_type_sla3 <- lmer(log(SLA) ~ (calluna_shoot_type * DroughtTrt * ageClass) +
-                               (1 | DroughNet_plotID/plant_nr), 
-                             data = calluna_shoot)
-summary(shoot_type_sla3)
-
-performance::check_model(shoot_type_sla3, detrend = FALSE)
+# shoot_type_sla3 <- lmer(log(SLA) ~ (calluna_shoot_type * DroughtTrt * ageClass) +
+#                                (1 | DroughNet_plotID/plant_nr), 
+#                              data = calluna_shoot)
+# summary(shoot_type_sla3)
+# 
+# performance::check_model(shoot_type_sla3, detrend = FALSE)
 ```
 
 **mean thickness**
 
 ```{r}
-shoot_type_thickness3 <- lmer(mean_thickness ~ (calluna_shoot_type * DroughtTrt * ageClass) +
-                               (1 | DroughNet_plotID/plant_nr), 
-                             data = calluna_shoot)
-summary(shoot_type_thickness3)
-
-performance::check_model(shoot_type_thickness3, detrend = FALSE)
+# shoot_type_thickness3 <- lmer(mean_thickness ~ (calluna_shoot_type * DroughtTrt * ageClass) +
+#                                (1 | DroughNet_plotID/plant_nr), 
+#                              data = calluna_shoot)
+# summary(shoot_type_thickness3)
+# 
+# performance::check_model(shoot_type_thickness3, detrend = FALSE)
 ```
