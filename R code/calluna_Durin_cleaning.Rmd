@@ -26,8 +26,6 @@ Filter data for species "Calluna vulgaris"
 calluna_data <- filter(data, species == "Calluna vulgaris" & siteID %in% c("Lygra", "Sogndal", "Senja") & 
          grepl("Field - Traits", project))
 
-view(calluna_data)  # Displays "calluna_data" 
-
 # Count the number of "Calluna vulgaris" plants per site
 # Count the number of records per siteID within "calluna_data"
 (plant_count_per_site <- calluna_data %>%
@@ -44,8 +42,6 @@ species count (number of Calluna plants) per plot
 count_per_plot <- calluna_data %>%
   group_by(DURIN_plot) %>%
   summarise(count = n())  # Summarizes each group by counting the number of records
-
-view(count_per_plot)  # Displays the summarized data for 'DURIN_plot'
 
 # Count the number of leaves per DroughtNet plot ID
 # Group the data in 'calluna_data' by 'DroughNet_plotID' and count the number of records in each group
@@ -96,14 +92,12 @@ envelope_details <- calluna_data %>%
     envelope_ids = list(envelope_ID),
     .groups = 'drop'  # Drop the grouping to prevent it from affecting subsequent operations
   )
-
 # Identifying plants with Excess Samples
 # Filter for cases with more than 6 envelopes for the same plant
 excessive_envelope_details <- envelope_details %>%
   filter(envelope_count > 6)
 View(excessive_envelope_details)  # View details of these excessive samples
 
-# Expand the list of envelope IDs for detailed inspection
 expanded_envelopeids <- excessive_envelope_details %>%
   unnest(envelope_ids)
 View(expanded_envelopeids)  # View each individual envelope ID
@@ -118,7 +112,7 @@ View(less_envelope_details)  # View details of these cases with fewer samples
 # Expand the list of envelope IDs for these cases as well
 expanded_envelope_ids <- few_envelope_details %>%
   unnest(envelope_ids)
-View(expanded_envelope_ids)  # View each individual envelope ID
+View(expanded_envelope_ids) 
 
 ```
 
@@ -187,7 +181,6 @@ view(missing_shoot_type %>% select(envelope_ID, calluna_shoot_type)) # displays 
   # Note on the findings
 # Found 3 entries with missing shoot type information in the September samples
 # Action: Plan to cross-check with physical envelopes or other records, as these are already registered in RD4 checks
-
 ```
 
 ```{r}
@@ -312,7 +305,6 @@ plot_update <- data.frame(
 
   new_plot_nr = c(4, 3, 2, 2, 4, 1, 4, 2, 5) # New plot numbers corresponding to each envelope ID
 )
-
 # Update the 'calluna_data' data frame with new DURIN plot and plot_nr information
 calluna_data <- calluna_data %>%
   
@@ -358,7 +350,6 @@ calluna_data <- calluna_data %>%
   )
 ```
 
-
 ```{r}
 #add "north_south" and "coastal_inland" columns to describe the experimental set-up
 
@@ -370,6 +361,7 @@ calluna_data<- calluna_data %>%
   select(...1, envelope_ID, day, month, year, siteID, north_south, coast_inland, everything())
 
 view(calluna_data)#displays calluna_data with newly added columns
+write.csv(calluna_data, "calluna_durin_data_cleaned_final.csv", row.names = FALSE)
 ```
 
 
