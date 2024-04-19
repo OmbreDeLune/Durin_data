@@ -11,16 +11,12 @@ library(here)
 #install.packages("here")
 
 # #part 1 error identification
-# data <- read_csv("C:/Users/User/Desktop/Durin_data/output/DURIN_clean.csv", guess_max = Inf)
-# View(data)
-
 
 data <- read_csv("C:/Users/User/Desktop/Durin_data/output/DURIN_clean.csv", 
                  col_types = cols(calluna_shoot_type = col_factor(levels = c("Long", "Short"))),
                  guess_max = Inf)
-View(data)
+view(data)
 ```
-
 
 filter to droughtNet
 ```{r}
@@ -79,14 +75,12 @@ non_unique_treatment_rows <- droughtnet_data %>%
 
 # Display the extracted rows
 view(non_unique_treatment_rows)
-
 # Filter for only Lygra's 2.1 plot from non_unique_treatment_rows
 lygra_2_1_rows <- non_unique_treatment_rows %>%
     filter(siteID == "Lygra" & DroughNet_plotID == "2.1")
 view(lygra_2_1_rows)
 # AEG7270 has Amb(0) treatment, the rest are extreme, registered in RD4
 # Filter for only Tjøtta's 2.2 plot from non_unique_treatment_rows
-
 tjøtta_2_2_rows <- non_unique_treatment_rows %>%
     filter(siteID == "Tjøtta" & DroughNet_plotID == "2.2")
 view(tjøtta_2_2_rows)
@@ -104,10 +98,8 @@ tjøtta_1_2_rows <- non_unique_treatment_rows %>%
     filter(siteID == "Tjøtta" & DroughNet_plotID == "1.2")
 view(tjøtta_1_2_rows)
 #check again later, seems 1.2 is both in pioneer and mature hence more than 1 unique treatment
-
 #verified, same plot number in both age classes
 ```
-
 
 ```{r}
 #rows missing age class in the data set
@@ -169,8 +161,7 @@ View(expanded_envelope_ids)
         envelope_count = n(),
         envelope_ids = list(envelope_ID)
       )
-
-    # Filter to only include rows where there's more than one height for the same plant
+# Filter to only include rows where there's more than one height for the same plant
     multiple_heights_calluna <- calluna_heights_and_envelopes %>%
       group_by(siteID, DroughNet_plotID, plant_nr) %>%
       filter(n() > 1) %>%
@@ -180,7 +171,7 @@ View(expanded_envelope_ids)
     expanded_calluna <- multiple_heights_calluna %>% #expanded the envelope_ID collumn to display all the barcodes
       unnest(envelope_ids)
     view(expanded_calluna)
-    # a good number of the plants with multiple heights-documented already in rd4 checks
+# a good number of the plants with multiple heights-documented already in rd4 checks
 # Filter for Calluna vulgaris sampled in September
 calluna_heights_and_envelopes <- droughtnet_data %>%
   filter(species == "Calluna vulgaris", 
@@ -196,7 +187,6 @@ view(calluna_heights_and_envelopes )
 #no multiple heights in drought
 #multiple heights only found when we include June
 ```
-
 
 ```{r}
 #checking calluna short or long shoot type
@@ -235,9 +225,8 @@ droughtnet_data <- droughtnet_data %>%
     DroughtTrt = case_when(
       envelope_ID == "EEN3300" ~ "Ext(90)",
       envelope_ID == "AEG7270" ~ "Ext(90)",
-      TRUE ~ DroughtTrt  # Keeps the existing values for all other cases
-    )
-  )
+      TRUE ~ DroughtTrt  
+    ))
 ```
 
 ```{r}
@@ -250,23 +239,17 @@ droughtnet_data<- droughtnet_data %>%
                               labels = c("Coastal", "Coastal", "Coastal", "Inland", "Inland"))) %>%
   select(...1, envelope_ID, day, month, year, siteID, north_south, coast_inland, everything())
 
-view(droughtnet_data)
 # Filter the dataset to include only rows where 'DroughtTrt' is not missing
 droughtnet_data <- droughtnet_data %>% filter(!is.na(DroughtTrt))
-
-view(droughtnet_data)
-
-
 # Calculate mean thickness for each row, removing NAs in the calculation
 mean_thickness <- rowMeans(droughtnet_data[, c("leaf_thickness_1_mm", "leaf_thickness_2_mm", "leaf_thickness_3_mm")], na.rm = TRUE)
 
 # Add the mean_thickness column directly after leaf_thickness_3_mm without using within()
 droughtnet_data$mean_thickness <- NA  # Initialize the column to ensure it exists
 col_index <- which(names(droughtnet_data) == "leaf_thickness_3_mm") + 1  # Find the position right after leaf_thickness_3_mm
-# Rearrange columns to insert mean_thickness at the correct position
+# Rearrange columns to insert thickness at the correct position
 droughtnet_data <- droughtnet_data[, c(1:(col_index-1), ncol(droughtnet_data), (col_index):(ncol(droughtnet_data)-1))]
-
-# Now, actually assign the calculated mean thickness values to the new column
+#  assign the calculated mean thickness values to the new column
 droughtnet_data$mean_thickness <- mean_thickness
 view(droughtnet_data)
 # Standardize the DroughtTrt column
@@ -277,16 +260,12 @@ droughtnet_data$DroughtTrt <- gsub("Amb\\(0\\)", "Amb (0)", droughtnet_data$Drou
 #heights for 7.1 and 7.3 in the data set does not match the field notes, those that belong to 7.1 are all in 7.3 plot and those in 7.3 are all in 7.1
 # 7.3 and 7.1 were reversed in the field when sampling which was not corrected on the ziplock bags and envelopes and the same mistake ended up in the data set, so correct the error and re-assign proper plot IDs
 #Ensure the correct data types for Droughtnet plot ID for the Lygra plots
-# Identify duplicate column names
-
-
 # If DroughNet_plotID is not numeric, convert it. Similar for siteID.
 droughtnet_data <- droughtnet_data %>%
   mutate(
     DroughNet_plotID = as.numeric(as.character(DroughNet_plotID)),
     siteID = as.factor(siteID)
   )
-
 # update the DroughtTrt column based on the conditions
 droughtnet_data <- droughtnet_data %>%
   mutate(
@@ -296,7 +275,6 @@ droughtnet_data <- droughtnet_data %>%
       DroughNet_plotID == 7.1 & siteID == "Lygra" ~ "Ext (90)",
       # Condition for DroughNet_plotID 7.3 at Lygra site
       DroughNet_plotID == 7.3 & siteID == "Lygra" ~ "Amb (0)",
-      # Default case to keep existing DroughtTrt values
       TRUE ~ DroughtTrt
     )
   )
@@ -305,10 +283,8 @@ view(droughtnet_data)
 
 #inspection of the data also showed overlapping plot ids
 # the data has overlap naming system in the DroughNet_plotID for Tjøtta and Lygra site
-# Now to rectify this
 # Reassign DroughNet_plotID values based on specified rules for Tjøtta and Mature
-#so the reassigning will use Siri's original plot numbers 
-
+#reassigning will use Siri's original plot numbers 
 droughtnet_data1 <- droughtnet_data %>%
   mutate(DroughNet_plotID = as.character(DroughNet_plotID),  # Ensure it's character
          DroughNet_plotID = case_when(
@@ -320,7 +296,6 @@ droughtnet_data1 <- droughtnet_data %>%
            siteID == "Tjøtta" & ageClass == "Mature" & DroughNet_plotID == "3.2" ~ "18.2",
            TRUE ~ DroughNet_plotID  # Keep original ID for all other cases
          ))
-view(droughtnet_data1)
 
 # Update DroughNet_plotID values for Tjøtta and Pioneer based on specified rules
 droughtnet_data_final <- droughtnet_data1 %>%
@@ -331,26 +306,15 @@ droughtnet_data_final <- droughtnet_data1 %>%
     siteID == "Tjøtta" & ageClass == "Pioneer" & DroughNet_plotID == "2.3" ~ "11.3",
     siteID == "Tjøtta" & ageClass == "Pioneer" & DroughNet_plotID == "3.2" ~ "12.2",
     siteID == "Tjøtta" & ageClass == "Pioneer" & DroughNet_plotID == "3.3" ~ "12.3",
-    TRUE ~ as.character(DroughNet_plotID) # Keep original ID for other cases
+    TRUE ~ as.character(DroughNet_plotID) 
   ))
 
-view(droughtnet_data_final)
-
-#remove columns unrelated to droughtnet 
 # Remove the specified columns from the DataFrame
 columns_to_remove <- c("habitat", "plotNR", "DURIN_plot", "stomatal_conductance.gs.", "spectrometry", "cutout_barcode", "new_taxon", "flag", "remark_dry_weighing", "notes", "flag_DryMass", "remarks_2", "remark")
 droughtnet_data_final2 <- select(droughtnet_data_final, -all_of(columns_to_remove))
 
 
-
-# View the first few rows of the cleaned dataset
-view(droughtnet_data_final2)
-
-# Write the cleaned data to a new CSV file in the current working directory
-
 write.csv(droughtnet_data_final2, "droughtnet_data_cleaned_final.csv", row.names = FALSE)
-
-
 ```
 
 
