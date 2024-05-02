@@ -12,7 +12,7 @@ library(here)
 
 # #part 1 error identification
 
-data <- read_csv("C:/Users/User/Desktop/Durin_data/output/DURIN_clean.csv", 
+data <- read_csv("C:/Users/User/Desktop/Durin_data/output/DURIN_clean (2).csv", 
                  col_types = cols(calluna_shoot_type = col_factor(levels = c("Long", "Short"))),
                  guess_max = Inf)
 view(data)
@@ -20,12 +20,30 @@ view(data)
 
 filter to droughtNet
 ```{r}
-droughtnet_data <- data %>%
-  filter((ageClass == "Pioneer" | ageClass == "Mature") &
-         (DroughtTrt == "Amb (0)" | DroughtTrt == "Ext (90)") &
-         grepl("Field - Traits", project))
-view(droughtnet_data)
+# droughtnet_data <- data %>%
+#   filter((ageClass == "Pioneer" | ageClass == "Mature") &
+#          (DroughtTrt == "Amb (0)" | DroughtTrt == "Ext (90)") &
+#          grepl("Field - Traits", project))
+# view(droughtnet_data)
 
+
+###
+droughtnet_data <- data %>%
+  filter(
+    (DroughtTrt == "Amb (0)" | DroughtTrt == "Ext (90)") &
+    grepl("Field - Traits", project)
+  )
+view(droughtnet_data)
+droughtnet_data21 <- data %>%
+  filter(is.na(DURIN_plot))
+view(droughtnet_data21)
+
+
+filtered_data <- droughtnet_data21 %>%
+  filter(DroughNet_plotID %in% c(7.1, 7.3))
+view(filtered_data)
+# Write the filtered data to a CSV file
+write_csv(filtered_data, "7.1_7.3_data.csv")
 ```
 
 
@@ -72,6 +90,11 @@ treatment_uniqueness <- droughtnet_data %>%
 non_unique_treatment_rows <- droughtnet_data %>%
   semi_join(non_unique_treatments, by = c("DroughNet_plotID", "siteID")) %>%
   select(envelope_ID, species, DroughNet_plotID, DroughtTrt, siteID)
+
+#missing treatment
+missing_droughtTrt_data <- droughtnet_data %>%
+  filter(is.na(DroughtTrt))
+
 
 # Display the extracted rows
 view(non_unique_treatment_rows)
@@ -267,18 +290,32 @@ droughtnet_data <- droughtnet_data %>%
     siteID = as.factor(siteID)
   )
 # update the DroughtTrt column based on the conditions
+# droughtnet_data <- droughtnet_data %>%
+#   mutate(
+#     # specify conditions for changing DroughtTrt values
+#     DroughtTrt = case_when(
+#       # Condition for DroughNet_plotID 7.1 at Lygra site
+#       DroughNet_plotID == 7.1 & siteID == "Lygra" ~ "Ext (90)",
+#       # Condition for DroughNet_plotID 7.3 at Lygra site
+#       DroughNet_plotID == 7.3 & siteID == "Lygra" ~ "Amb (0)",
+#       TRUE ~ DroughtTrt
+#     )
+#   )
+
 droughtnet_data <- droughtnet_data %>%
   mutate(
     # specify conditions for changing DroughtTrt values
     DroughtTrt = case_when(
-      # Condition for DroughNet_plotID 7.1 at Lygra site
-      DroughNet_plotID == 7.1 & siteID == "Lygra" ~ "Ext (90)",
-      # Condition for DroughNet_plotID 7.3 at Lygra site
-      DroughNet_plotID == 7.3 & siteID == "Lygra" ~ "Amb (0)",
+      # Condition for DroughtNet_plotID 7.1 at Lygra site with AgeClass 'Mature'
+      DroughNet_plotID == 7.1 & siteID == "Lygra" & ageClass == "Mature" ~ "Ext (90)",
+      # Condition for DroughtNet_plotID 7.3 at Lygra site with AgeClass 'Mature'
+      DroughNet_plotID == 7.3 & siteID == "Lygra" & ageClass == "Mature" ~ "Amb (0)",
+      # Default to existing value if none of the above conditions are met
       TRUE ~ DroughtTrt
     )
   )
 view(droughtnet_data)
+
 # all the meta data now matches the correct 7.1 and 7.3 plots after reversing.
 
 #inspection of the data also showed overlapping plot ids
@@ -312,8 +349,14 @@ droughtnet_data_final <- droughtnet_data1 %>%
 # Remove the specified columns from the DataFrame
 columns_to_remove <- c("habitat", "plotNR", "DURIN_plot", "stomatal_conductance.gs.", "spectrometry", "cutout_barcode", "new_taxon", "flag", "remark_dry_weighing", "notes", "flag_DryMass", "remarks_2", "remark")
 droughtnet_data_final2 <- select(droughtnet_data_final, -all_of(columns_to_remove))
+view(droughtnet_data_final2)
+filtered_data <- droughtnet_data_final2 %>%
+  filter(DroughNet_plotID %in% c(7.1, 7.3))
+view(filtered_data)
+# Write the filtered data to a CSV file
+write_csv(filtered_data, "7.1_7.3_data.csv")
 
-
+view(droughtnet_data_final2)
 write.csv(droughtnet_data_final2, "droughtnet_data_cleaned_final.csv", row.names = FALSE)
 ```
 
