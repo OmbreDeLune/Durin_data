@@ -13,10 +13,12 @@ library(dplyr)
 library(readr)
 
 #part 1 identify errors in the dataset
-data <- read_csv("C:/Users/User/Desktop/Durin_data/output/DURIN_clean.csv", guess_max = Inf)# guess_max = Inf' helps in correctly guessing the column types for all rows.
+data <- read_csv("C:/Users/User/Desktop/Durin_data/raw_data/DURIN_clean.csv", guess_max = Inf)# guess_max = Inf' helps in correctly guessing the column types for all rows.
 View(data)
 
 ```
+
+
 Filter data for species "Calluna vulgaris"
 ```{r}
 # Filter "data" for records where the species is "Calluna vulgaris", 
@@ -38,13 +40,13 @@ species count (number of Calluna plants) per plot
 ```{r}
 # Count the number of leaves per DURIN plot
 # Group the data in 'calluna_data' by 'DURIN_plot' and count the number of records in each group
-count_per_plot <- calluna_data %>%
+count_durin_plot <- calluna_data %>%
   group_by(DURIN_plot) %>%
   summarise(count = n())  # Summarizes each group by counting the number of records
 
 # Count the number of leaves per DroughtNet plot ID
 # Group the data in 'calluna_data' by 'DroughNet_plotID' and count the number of records in each group
-count_per_plot <- calluna_data %>%
+count_droughnet_plot <- calluna_data %>%
   group_by(DroughNet_plotID) %>%
   summarise(count = n())  # Summarizes each group by counting the number of records
 
@@ -223,14 +225,14 @@ calluna_data <- calluna_data %>%
   ) %>%
   select(-new_height)  # Remove the new_height column after updating
 
-# Check for the issue of multiple heights  in the data
+# Check for multiple heights  in the data
 # Summarize the number of unique plant heights per envelope ID
 height_summary <- calluna_data %>%
   group_by(envelope_ID) %>%
   summarize(num_unique_heights = n_distinct(plant_height)) # Calculate the number of distinct heights for each envelope_ID
 
   
-# Identify envelope IDs that have more than one unique height
+# Identify envelope IDs that have more than one height
 multiple_heights <- height_summary %>%
   filter(num_unique_heights > 1)
   # Filter for IDs where the number of unique heights is greater than one
@@ -322,7 +324,7 @@ calluna_data <- calluna_data %>%
 # Filter entries that have envelope_IDs listed in 'calluna_data'
 updated_entries <- filter(calluna_data, envelope_ID %in% calluna_data$envelope_ID)
 
-View(updated_entries) # Display the updated entries for review
+View(updated_entries)
 
 ```
 
@@ -359,7 +361,6 @@ calluna_data<- calluna_data %>%
                               labels = c("Coastal", "Coastal", "Coastal", "Inland", "Inland"))) %>%
   select(...1, envelope_ID, day, month, year, siteID, north_south, coast_inland, everything())
 
-view(calluna_data)#displays calluna_data with newly added columns
 write.csv(calluna_data, "calluna_durin_data_cleaned_final.csv", row.names = FALSE)
 ```
 
