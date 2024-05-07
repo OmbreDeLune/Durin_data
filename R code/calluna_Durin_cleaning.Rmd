@@ -12,10 +12,11 @@ library(tidyverse)
 library(dplyr)
 library(readr)
 
-#part 1 identify errors in the dataset
-data <- read_csv("C:/Users/User/Desktop/Durin_data/raw_data/DURIN_clean.csv", guess_max = Inf)# guess_max = Inf' helps in correctly guessing the column types for all rows.
-View(data)
 
+
+#part 1 identify errors in the dataset
+
+data <- read_csv("../raw_data/DURIN_clean.csv", guess_max = Inf) # guess_max = Inf' helps in correctly guessing the column types for all rows.
 ```
 
 
@@ -39,13 +40,13 @@ calluna_data <- filter(data, species == "Calluna vulgaris" & siteID %in% c("Lygr
 species count (number of Calluna plants) per plot
 ```{r}
 # Count the number of leaves per DURIN plot
-# Group the data in 'calluna_data' by 'DURIN_plot' and count the number of records in each group
+# Group the data in "calluna_data" by DURIN_plot and count the number of records in each group
 count_durin_plot <- calluna_data %>%
   group_by(DURIN_plot) %>%
   summarise(count = n())  # Summarizes each group by counting the number of records
 
 # Count the number of leaves per DroughtNet plot ID
-# Group the data in 'calluna_data' by 'DroughNet_plotID' and count the number of records in each group
+# Group the data in calluna_data by DroughNet_plotID and count the number of records in each group
 count_droughnet_plot <- calluna_data %>%
   group_by(DroughNet_plotID) %>%
   summarise(count = n())  # Summarizes each group by counting the number of records
@@ -62,7 +63,7 @@ view(count_per_plot)  # Displays the summarized data for 'DroughNet_plotID'
 no_plot_count <- calluna_data %>%
   filter(is.na(DURIN_plot) & is.na(DroughNet_plotID)) %>%
   summarise(count = n()) %>%
-  mutate(plot_type = "No Plot Assigned", plot = "No Plot Assigned") # Adds 'plot_type' and 'plot' columns with the value "No Plot Assigned"
+  mutate(plot_type = "No Plot Assigned", plot = "No Plot Assigned") # Adds plot_type and plot columns with the value "No Plot Assigned"
 
 # Combine the count results from different plot types
 # Combine the previously calculated counts (count_durin_plot and count_droughnet_plot) with no_plot_count
@@ -159,7 +160,7 @@ view(expanded_calluna)  # View the detailed list of envelope IDs
 # Group calluna_data by envelope_ID for detailed inspection
 calluna_missing_heights <- calluna_data %>%
   group_by(envelope_ID) %>%
-  # Filter for entries from the sites 'Lygra', 'Sogndal', and 'Senja' where plant_height is missing (NA)
+  # Filter for entries from the sites "Lygra", "Sogndal", and "Senja" where plant_height is missing (NA)
   filter(siteID %in% c("Lygra", "Sogndal", "Senja"), is.na(plant_height))
 
 view(calluna_missing_heights %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, plant_height)) # displays the envelope_ID, siteID, and plot information along with missing plant heights
