@@ -1,0 +1,376 @@
+---
+title: "Calluna data cleaning"
+output: html_notebook
+---
+
+
+Load the Data.,
+
+```{r}
+#Read necessary libraries
+library(tidyverse)
+library(dplyr)
+library(readr)
+
+
+
+#part 1 identify errors in the dataset
+
+data <- read_csv("../raw_data/DURIN_clean.csv", guess_max = Inf) # guess_max = Inf' helps in correctly guessing the column types for all rows.
+```
+
+
+Filter data for species "Calluna vulgaris"
+```{r}
+# Filter "data" for records where the species is "Calluna vulgaris", 
+# the siteID is one of "Lygra", "Sogndal", or "Senja", 
+# and the project includes "Field - Traits"
+calluna_data <- filter(data, species == "Calluna vulgaris" & siteID %in% c("Lygra", "Sogndal", "Senja") & 
+         grepl("Field - Traits", project))
+
+# Count the number of "Calluna vulgaris" plants per site
+# Count the number of records per siteID within "calluna_data"
+(plant_count_per_site <- calluna_data %>%
+  filter(siteID %in% c("Lygra", "Sogndal", "Senja")) %>%  # Filters for the specified sites
+  group_by(siteID) %>%                                    # Groups the data by siteID
+  summarise(count = n()))                                  # Summarises the data by counting the number of records in each group
+
+```
+
+species count (number of Calluna plants) per plot
+```{r}
+# Count the number of leaves per DURIN plot
+# Group the data in "calluna_data" by DURIN_plot and count the number of records in each group
+count_durin_plot <- calluna_data %>%
+  group_by(DURIN_plot) %>%
+  summarise(count = n())  # Summarizes each group by counting the number of records
+
+# Count the number of leaves per DroughtNet plot ID
+# Group the data in calluna_data by DroughNet_plotID and count the number of records in each group
+count_droughnet_plot <- calluna_data %>%
+  group_by(DroughNet_plotID) %>%
+  summarise(count = n())  # Summarizes each group by counting the number of records
+
+view(count_per_plot)  # Displays the summarized data for 'DroughNet_plotID'
+```
+
+
+```{r}
+#checking  envelope-ids with no plots assigned
+# Count the number of plants in calluna_data that have not been assigned to any plot
+# Filter calluna_data for entries where both DURIN_plot and DroughNet_plotID are NA
+# Then, count these entries
+no_plot_count <- calluna_data %>%
+  filter(is.na(DURIN_plot) & is.na(DroughNet_plotID)) %>%
+  summarise(count = n()) %>%
+  mutate(plot_type = "No Plot Assigned", plot = "No Plot Assigned") # Adds plot_type and plot columns with the value "No Plot Assigned"
+
+# Combine the count results from different plot types
+# Combine the previously calculated counts (count_durin_plot and count_droughnet_plot) with no_plot_count
+combined_results <- bind_rows(count_durin_plot, count_droughnet_plot, no_plot_count)
+
+view(combined_results)  # Displays a summary of counts for each plot type
+
+# Identify specific entries without any plot assignment
+# Filter out all entries in calluna_data where both DURIN_plot and DroughNet_plotID are not assigned
+no_plots_assigned_by_envelope <- calluna_data %>%
+  filter(is.na(DURIN_plot) & is.na(DroughNet_plotID)) %>%
+  select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID)  # Selects only specific columns for review
+
+view(no_plots_assigned_by_envelope)  # Displays entries without any plot assignment
+# findings
+# no  entries without plot assigned
+
+```
+ 
+```{r}
+# Analyzing envelope details for Calluna vulgaris samples collected in September
+envelope_details <- calluna_data %>%
+  filter(month == "September") %>%  # Focus on September samples
+  group_by(siteID, DURIN_plot, DroughNet_plotID, plant_nr) %>%
+  # Summarize the data by counting distinct envelope IDs and compiling a list of these IDs
+  summarise(
+    envelope_count = n_distinct(envelope_ID),
+    envelope_ids = list(envelope_ID),
+    .groups = 'drop'  # Drop the grouping to prevent it from affecting subsequent operations
+  )
+# Identifying plants with Excess Samples
+# Filter for cases with more than 6 envelopes for the same plant
+excessive_envelope_details <- envelope_details %>%
+  filter(envelope_count > 6)
+View(excessive_envelope_details)  # View details of these excessive samples
+
+expanded_envelopeids <- excessive_envelope_details %>%
+  unnest(envelope_ids)
+View(expanded_envelopeids)  # View each individual envelope ID
+# Note: Found instances where the number of envelopes exceeds the expected count, indicating potential data entry errors or duplicates
+
+# Identifying Envelopes with Fewer Samples
+# Repeat the analysis for cases with fewer than 6 envelopes
+few_envelope_details <- envelope_details %>%
+  filter(envelope_count < 6)
+View(less_envelope_details)  # View details of these cases with fewer samples
+
+# Expand the list of envelope IDs for these cases as well
+expanded_envelope_ids <- few_envelope_details %>%
+  unnest(envelope_ids)
+View(expanded_envelope_ids) 
+
+```
+
+
+```{r}
+#check multiple heights for calluna vulgaris
+ # Analyzing Calluna vulgaris data for multiple height records
+# Filter the data to exclude entries where DURIN_plot is missing
+calluna_heights_and_envelopes <- calluna_data %>%
+  filter(!is.na(DURIN_plot)) %>%  # Focus on rows with assigned DURIN_plot values
+  group_by(siteID, DURIN_plot, plant_nr, plant_height) %>%
+  # Summarize the data to count envelopes and gather their IDs for each group
+  summarise(
+    envelope_count = n(),  # Count the number of envelopes
+    envelope_ids = list(envelope_ID)  # Collect envelope IDs in a list
+  ) %>%
+  ungroup()  # Remove grouping to allow further operations
+
+# Identify cases with multiple height measurements for the same plant
+multiple_heights_calluna <- calluna_heights_and_envelopes %>%
+  group_by(siteID, DURIN_plot, plant_nr) %>%
+  # Filter for groups where the number of unique height records is more than one
+  filter(n() > 1) %>%
+  ungroup()  # Ungroup for general processing
+
+view(multiple_heights_calluna)  # View entries with multiple height records
+
+# Expand the envelope_ID column for a detailed view of each barcode
+expanded_calluna <- multiple_heights_calluna %>%
+  unnest(envelope_ids)  # Separate each envelope ID for detailed viewing
+
+view(expanded_calluna)  # View the detailed list of envelope IDs
+
+# Note on findings and next steps
+# Found a significant number of Calluna vulgaris plants with multiple height records
+# Planned action: Cross-check these findings with field notes, as they are already registered in RD4 checks
+```
+
+
+```{r}
+#plants with missing heights
+# Identify entries with missing plant heights in specific sites
+# Group calluna_data by envelope_ID for detailed inspection
+calluna_missing_heights <- calluna_data %>%
+  group_by(envelope_ID) %>%
+  # Filter for entries from the sites "Lygra", "Sogndal", and "Senja" where plant_height is missing (NA)
+  filter(siteID %in% c("Lygra", "Sogndal", "Senja"), is.na(plant_height))
+
+view(calluna_missing_heights %>% select(envelope_ID, siteID, DURIN_plot, DroughNet_plotID, plant_height)) # displays the envelope_ID, siteID, and plot information along with missing plant heights
+# Note on the findings
+# no Calluna vulgaris entries with missing height data from the sites 'Lygra', 'Sogndal', and 'Senja'
+```
+
+```{r}
+#missing shoot type
+# Identify entries with missing or incorrect Calluna shoot type for samples collected in September
+# Filter calluna_data for samples collected in September
+missing_shoot_type <- calluna_data %>%
+  filter(month == "September") %>%  # Focus on September samples as they should have shoot type information
+  group_by(envelope_ID) %>%
+  # Filter for entries where the calluna_shoot_type is either missing (NA) or not 'Short' or 'Long'
+  filter(is.na(calluna_shoot_type) | !calluna_shoot_type %in% c("Short", "Long"))
+
+view(missing_shoot_type %>% select(envelope_ID, calluna_shoot_type)) # displays only envelope_ID and calluna_shoot_type columns for clarity
+
+  # Note on the findings
+# Found 3 entries with missing shoot type information in the September samples
+# Action: Plan to cross-check with physical envelopes or other records, as these are already registered in RD4 checks
+```
+
+```{r}
+# Identify entries in calluna_data with missing plant numbers
+# Filter calluna_data for entries where plant_nr (plant number) is missing (NA)
+missing_plant_numbers <- calluna_data %>%
+  filter(is.na(plant_nr))
+
+View(missing_plant_numbers) # Display the filtered results with missing plant numbers  
+
+# Check specific DURIN plots for missing plant numbers
+# Filter calluna_data for entries belonging to specific DURIN plots ('SE_F_CV_5', 'SE_O_CV_3', 'SO_F_CV_2')
+# These plots are selected based on missing plant numbers were noticed
+filtered_data <- calluna_data %>%
+  filter(DURIN_plot == "SE_F_CV_5" | DURIN_plot == "SE_O_CV_3" | DURIN_plot == "SO_F_CV_2") %>%
+  select(DURIN_plot, envelope_ID, habitat, plant_nr, leaf_nr, calluna_shoot_type, plant_height)
+  # Selects specific columns
+
+View(filtered_data) # Display the filtered data for the specific plots
+```
+
+#part 2 correct errors
+# solution for multiple heights
+```{r}
+# Update plant heights for specific envelope IDs
+# Create a data frame with new plant heights for specific envelope IDs
+new_heights <- data.frame(
+  envelope_ID = c("JSS9939", "JUX7595", "EZT0898", "ISG6942", "IRQ7403", "IRZ5734", "FJK2414", "FKA3240", "FBC7245", "FBO5718", "FBG3321", "JBP1451", "JTZ3317", "JAR2795", "JET0022"),
+  new_height = c(61.8, 34, 19.8, 32.6, 32.6, 32.6, 29.8, 29.8, 28.9, 28.9, 28.9, 30.5, 23.9, 30, 16.9)# Envelope IDs and corresponding new plant heights
+  
+)
+# Merge the new heights with the original calluna_data and update the plant_height
+calluna_data <- calluna_data %>%
+  left_join(new_heights, by = "envelope_ID") %>%
+  mutate(
+    # Update plant_height: use new_height, otherwise keep the original plant_height
+    plant_height = case_when(
+      !is.na(new_height) ~ new_height,  # Replace with new_height if available
+      TRUE ~ plant_height               # Retain original plant_height if new_height is NA
+    )
+  ) %>%
+  select(-new_height)  # Remove the new_height column after updating
+
+# Check for multiple heights  in the data
+# Summarize the number of unique plant heights per envelope ID
+height_summary <- calluna_data %>%
+  group_by(envelope_ID) %>%
+  summarize(num_unique_heights = n_distinct(plant_height)) # Calculate the number of distinct heights for each envelope_ID
+
+  
+# Identify envelope IDs that have more than one height
+multiple_heights <- height_summary %>%
+  filter(num_unique_heights > 1)
+  # Filter for IDs where the number of unique heights is greater than one
+```
+
+```{r}
+# Update plant numbers for specific envelope IDs
+# Create a data frame with specific updates for plant numbers
+plant_nr_updates <- data.frame(
+  envelope_ID = c("FLJ9637", "FGH3419", "JUK8367", "JUC3901"),  # Envelope IDs that need updates
+  new_plant_number = c(3, 1, 1, 2)  # Corresponding new plant numbers
+)
+
+# Update the 'calluna_data' data frame with the new plant numbers
+calluna_data <- calluna_data %>%
+  # Merge the update information with the main data
+  left_join(plant_nr_updates, by = "envelope_ID") %>%
+  mutate(
+    # Update the plant_nr: if a new plant number is provided, use it; otherwise, keep the original
+    plant_nr = case_when(
+      !is.na(new_plant_number) ~ new_plant_number,  # Update if new number is provided
+      TRUE ~ plant_nr                               # Keep original if no new number
+    )
+  ) %>%
+  select(-new_plant_number)  # Remove the helper column 'new_plant_number' after updating
+
+```
+
+
+```{r}
+# Correct the calluna shoot type for a specific envelope ID
+calluna_data <- calluna_data %>%
+  mutate(
+    # If envelope_ID is "JVA1966" and the calluna_shoot_type is NA or empty, set it to "Long"
+    calluna_shoot_type = ifelse(envelope_ID == "JVA1966" & (is.na(calluna_shoot_type) | calluna_shoot_type == ""),  "Long", calluna_shoot_type)
+  )
+# Check the updated entries for envelope_ID "JVA1966"
+updated_entries <- filter(calluna_data, envelope_ID == "JVA1966") 
+View(updated_entries)  # Display the updated entries for review
+
+# Update shoot types for September samples
+# Set entries with missing or incorrect shoot types to NA for samples collected in September
+calluna_data <- calluna_data %>%
+  mutate(
+    # If the month is September and shoot_type is missing or not in ["Short", "Long"], set to NA
+    calluna_shoot_type = ifelse(month == "September" & 
+                                (is.na(calluna_shoot_type) | 
+                                 !calluna_shoot_type %in% c("Short", "Long")), 
+                                NA, calluna_shoot_type)
+  )
+# Verify the missing or incorrect shoot types for September samples have been corrected
+missing_shoot_type_corrected <- calluna_data %>%
+  filter(month == "September") %>%
+  group_by(envelope_ID) %>%
+  # Filter for records where calluna_shoot_type is NA or not ["Short", "Long"]
+  filter(is.na(calluna_shoot_type) | !calluna_shoot_type %in% c("Short", "Long"))
+
+# Display the corrected entries for shoot types
+View(missing_shoot_type_corrected %>% select(envelope_ID, calluna_shoot_type))
+
+```
+ 
+
+```{r}
+# update DURIN plot and plot_nr
+# Create a data frame with the specific updates needed for DURIN plots and plot numbers
+plot_update <- data.frame(
+  envelope_ID = c("JSB2142", "JRJ3443", "EZW2868", "FAY0434", "FCR0014", "FCU0944", "FCP8702", "JIQ4468", "JEU2375"), #envelope IDs that need their plot information updated
+
+  new_DURIN_plot = c("Ly_F_CV_4", "Ly_F_CV_3", "Se_F_CV_2", "Se_F_CV_2", "Se_O_CV_4", "Se_O_CV_1", "Se_F_CV_4", "So_O_CV_2", "So_O_CV_5"), # New DURIN_plot values corresponding to each envelope ID
+
+  new_plot_nr = c(4, 3, 2, 2, 4, 1, 4, 2, 5) # New plot numbers corresponding to each envelope ID
+)
+# Update the 'calluna_data' data frame with new DURIN plot and plot_nr information
+calluna_data <- calluna_data %>%
+  
+  left_join(plot_update, by = "envelope_ID") %>% # Merge the original data with the updates based on envelope_ID
+  mutate(
+    # Update DURIN_plot otherwise, keep the original DURIN_plot
+    DURIN_plot = ifelse(!is.na(new_DURIN_plot), new_DURIN_plot, DURIN_plot),
+
+    # Update plotNR otherwise, keep the original plotNR
+    plotNR = ifelse(!is.na(new_plot_nr), new_plot_nr, plotNR)
+  ) %>%
+  # Remove the temporary columns 'new_DURIN_plot' and 'new_plot_nr' as they are no longer needed
+  select(-new_DURIN_plot, -new_plot_nr)
+
+# Check the updated entries for verification
+# Filter entries that have envelope_IDs listed in 'calluna_data'
+updated_entries <- filter(calluna_data, envelope_ID %in% calluna_data$envelope_ID)
+
+View(updated_entries)
+
+```
+
+
+```{r}
+# update different fields
+calluna_data <- calluna_data %>%
+  mutate(
+    siteID = ifelse(envelope_ID == "FIV6929", "Sogndal", siteID), #update site ID to Sogndal
+    # update "habitat" field based on envelope _ID
+    # JIQ4468 set habitat to "open"
+    # JTL1260 & JEX2629 set to "forested"
+    habitat = ifelse(envelope_ID == "JIQ4468", "Open", 
+              ifelse(envelope_ID == "JTL1260", "Forested", 
+              ifelse(envelope_ID == "JEX2629", "Forested", habitat))),
+    # Update the 'DURIN_plot' field based on envelope_ID:
+    # "JIQ4468", set DURIN_plot to "SO_O_CV_2"
+    # "JTL1260", set DURIN_plot to "SO_F_CV_3"
+    # "JEX2629", set DURIN_plot to "SO_F_CV_4"
+    # otherwise keep the current DURIN_plot value
+    DURIN_plot = ifelse(envelope_ID == "JIQ4468", "SO_O_CV_2", 
+                 ifelse(envelope_ID == "JTL1260", "SO_F_CV_3", 
+                 ifelse(envelope_ID == "JEX2629", "SO_F_CV_4", DURIN_plot)))
+  )
+```
+
+```{r}
+#add "north_south" and "coastal_inland" columns to describe the experimental set-up
+
+calluna_data<- calluna_data %>% 
+  mutate(north_south = factor(siteID, levels = c("Lygra", "Sogndal", "Senja", "Tjøtta", "Kautokeino"),
+                              labels = c("South", "South", "North", "North", "North"))) %>% 
+  mutate(coast_inland = factor(siteID, levels = c("Lygra", "Tjøtta", "Senja", "Sogndal", "Kautokeino"),
+                              labels = c("Coastal", "Coastal", "Coastal", "Inland", "Inland"))) %>%
+  select(...1, envelope_ID, day, month, year, siteID, north_south, coast_inland, everything())
+
+write.csv(calluna_data, "calluna_durin_data_cleaned_final.csv", row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
