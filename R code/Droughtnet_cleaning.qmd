@@ -10,7 +10,7 @@ library(readr)
 library(here)
 #install.packages("here")
 
-DURIN <- read_csv("C:/Users/User/Desktop/Durin_data/R code/DURIN_clean.csv", col_types = cols(calluna_shoot_type = col_factor(levels = c("Long", "Short"))),
+DURIN <- read_csv("C:/Users/User/Desktop/Durin_data/raw_data/DURIN_clean.csv", col_types = cols(calluna_shoot_type = col_factor(levels = c("Long", "Short"))),
                  guess_max = Inf)
 
 
@@ -235,7 +235,7 @@ col_index <- which(names(droughtnet_data) == "leaf_thickness_3_mm") + 1  # Find 
 droughtnet_data <- droughtnet_data[, c(1:(col_index-1), ncol(droughtnet_data), (col_index):(ncol(droughtnet_data)-1))]
 #  assign the calculated mean thickness values to the new column
 droughtnet_data$mean_thickness <- mean_thickness
-view(droughtnet_data)
+
 # Standardize the DroughtTrt column
 droughtnet_data$DroughtTrt <- gsub("Ext\\(90\\)", "Ext (90)", droughtnet_data$DroughtTrt)
 droughtnet_data$DroughtTrt <- gsub("Amb\\(0\\)", "Amb (0)", droughtnet_data$DroughtTrt)
@@ -275,6 +275,6 @@ droughtnet_data_final <- droughtnet_data %>%
 columns_to_remove <- c("habitat", "plotNR", "DURIN_plot", "stomatal_conductance.gs.", "spectrometry", "cutout_barcode", "new_taxon", "flag", "remark_dry_weighing", "notes", "flag_DryMass", "remarks_2", "remark")
 droughtnet_data_final2 <- select(droughtnet_data_final, -all_of(columns_to_remove))
 
-view(droughtnet_data_final2)
+
 write.csv(droughtnet_data_final2, "droughtnet_data_cleaned_final.csv", row.names = FALSE)
 ```
