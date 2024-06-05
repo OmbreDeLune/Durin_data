@@ -1,0 +1,125 @@
+---
+title: "Growth_data_cleaning"
+author: "OmbreDeLune"
+date: "2024-06-05"
+output: html_document
+---
+#Loading packages
+```{r}
+library(usethis)
+library(tidyverse)
+library(tibble)
+library(dplyr)
+library(lubridate)
+library(zoo)
+library(fixr)
+```
+
+
+#Cleaning all data
+
+In order to clean the data, I first import the raw data, a csv document obtain from the original excel document. 
+```{r}
+raw_data<-read.csv("raw_data.csv")
+```
+
+First, I want to concatenate the date values in a single value. I create a new column for that.
+```{r}
+loc <- Sys.getlocale("LC_TIME"); Sys.setlocale("LC_TIME", "en_GB.UTF-8"); Sys.setlocale("LC_TIME", "C")
+date_list<-paste(raw_data$year, raw_data$month, raw_data$day, sep = "-")
+date_list<-strptime(date_list,format="%Y-%B-%d")
+date_list<-as.Date(date_list, format="%Y-%B-%d")
+raw_data<-add_column(raw_data, date = date_list, .after = 'year')
+```
+
+Now, I verify that every column name is a character.  
+```{r}
+column_names<-colnames(raw_data)
+column_names
+str(column_names)
+```
+
+Okay, every column name is a character, but some ones are weird. I want to replace them in something more usefull. There is still to change names for the remaining stuff.  
+
+
+```{r}
+names(raw_data)[names(raw_data) == 'photo_comment'] <- 'general_comment'
+names(raw_data)[names(raw_data) == 'X..branches.5mm'] <- 'nrb_branches_lger_5mm'
+names(raw_data)[names(raw_data) == 'X..broken_branches.5mm'] <- 'nrb_brk_branches_lger_5mm'
+names(raw_data)[names(raw_data) == 'X..broken_branches.5mm.1'] <- 'nrb_brk_branches_shtr_5mm'
+names(raw_data)[names(raw_data) == 'fruits.or.flowers'] <- 'presence_reproductive_str'
+names(raw_data)[names(raw_data) == 'reproductive.stem'] <- 'presence_reproductive_stem'
+names(raw_data)[names(raw_data) == 'X._branches_s1'] <- 'nbr_sidebranch_s1'
+names(raw_data)[names(raw_data) == 'X._branches_s2'] <- 'nbr_sidebranch_s2'
+```
+
+I identify the class of every column. 
+```{r}
+lapply(raw_data, class)
+```
+
+Except for plant_height, every column that should be numerical is numerical. 
+We correct the errors. 
+
+The errors and corrections are noticed in the google doc for corrections. 
+
+```{r}
+grepl('missing', raw_data$plant_height) 
+raw_data$plant_height[raw_data$plant_height=='missing']<-NA
+```
+We still have to correct the character columns that have numerics somewhere, but I won't do it now. 
+
+
+
+
+I now need to distinct between two samples that were called the same way but with two detached individuals, that were called "individual A" and "individual B" in the raw data. I identify the duplicated rows according to the plotID in order to distinct individuals. 
+
+I suppress every example of duplicated row that has no measure, as it is just an error of where to write the measures. As the length of the longest branch was measured for every sample for that, I suppress rows that were not measured. This include the CV and EN species that we haven't processed, and the rows that were pre-prepared but not used in writing the measures. 
+
+```{r}
+raw_data <- raw_data[!is.na(raw_data$length_longest_branch_cm), ]
+```
+I end up with 76 samples measured, which is coherent as I have 4 samples with 2 individuals, and 1 sample with 3 individuals : 
+```{r}
+raw_data[duplicated(raw_data$DURIN_plot), ]
+```
+
+
+I create a new column, which I will modify manually according to the comment. 
+
+```{r}
+com_individual<-rep("A",length(raw_data$length_longest_branch_cm) )
+raw_data<-add_column(raw_data, comment_indiv = com_individual, .after = 'DURIN_plot')
+```
+
+```{r}
+raw_data['35','comment_indiv']<-'B'
+raw_data['39','comment_indiv']<-'B'
+raw_data['64','comment_indiv']<-'B'
+raw_data['79','comment_indiv']<-'B'
+raw_data['104','comment_indiv']<-'B'
+raw_data['105','comment_indiv']<-'C'
+```
+
+Now I remove columns that  are not data but information about processing. 
+```{r}
+removed_list<-c("ageClass", "DroughtTrt", "DroughNet_plotID", "photoID_N", "photoID_W", "general_comment", "Chopping.technician", "time.spent.on.chopping","weighing.date","Mass.technician","weighing.time", "balance", "REMAINING.BRANCH.PROCESSING......", "Chopping.technician.1", "time.spent.on.chopping.1","weighing.date.1", "Mass.technician.1", "weighing.time.1", "Which.balance")
+raw_data<-raw_data %>% select(-one_of(removed_list))
+```
+
+
+Now, have to correct the strange data and analyse them. 
+
+
+
+```{r}
+raw_data[raw_data$branch_length_s1_b2 != 0,]
+```
+
+I have decided to move the values that seem to be at the wrong place according to the explanations written in the Explanations document. 
+```{r}
+
+```
+
+
+
