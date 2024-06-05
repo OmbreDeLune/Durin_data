@@ -61,10 +61,12 @@ lapply(raw_data, class)
 Except for plant_height, every column that should be numerical is numerical. 
 We correct the errors. 
 
-The errors and corrections are noticed in the google doc for corrections. 
-
+The errors and corrections are noticed in the google doc for corrections.
 ```{r}
 grepl('missing', raw_data$plant_height) 
+```
+
+```{r}
 raw_data$plant_height[raw_data$plant_height=='missing']<-NA
 ```
 We still have to correct the character columns that have numerics somewhere, but I won't do it now. 
@@ -107,18 +109,88 @@ removed_list<-c("ageClass", "DroughtTrt", "DroughNet_plotID", "photoID_N", "phot
 raw_data<-raw_data %>% select(-one_of(removed_list))
 ```
 
+Now, I work on other columns that are strange. Their names are ambiguous or redundant, and are the result of misunderstanding between lab workers. As errors, we have sometime written data in those columns  instead of writting it in the right ones. We first correct these errors (see explanations in the google excel), and then suppress them.
 
-Now, have to correct the strange data and analyse them. 
-
-
-
+First, searching where are the errors.
 ```{r}
 raw_data[raw_data$branch_length_s1_b2 != 0,]
+raw_data[raw_data$branch_length_s2_b2 != 0,]
+raw_data[raw_data$branch_length_s2_y2_b1.1 != 0,]
+
 ```
 
-I have decided to move the values that seem to be at the wrong place according to the explanations written in the Explanations document. 
+Manually moving the values in the right place.
+!! for SO_F_VM_4 it is not an error, but the sample had this branch. We don't erase the values here. 
 ```{r}
+#wrong branch_length_s1_b2, except "KA_O_VM_3_B"
+list_ID<-c("SO_F_VM_1","SO_F_VM_5","LY_O_VM_4","SE_F_VM_1","SE_O_VM_4","KA_O_VM_1")
+for (i in list_ID){
+  raw_data[raw_data$DURIN_plot == i, c("branch_length_s1_b2", "branch_length_s2_y1_b1")] <- raw_data[raw_data$DURIN_plot == i, c("branch_length_s2_y1_b1", "branch_length_s1_b2")] 
+}
 
+#for KA_O_VM_3_B
+raw_data[raw_data$DURIN_plot =='KA_O_VM_3' & raw_data$comment_indiv=='B', c("branch_length_s1_b2", "branch_length_s2_y1_b1")] <- raw_data[raw_data$DURIN_plot =='KA_O_VM_3' & raw_data$comment_indiv=='B', c("branch_length_s2_y1_b1", "branch_length_s1_b2")] 
+
+
+
+#wrong branch_length_s2_b2
+raw_data[raw_data$DURIN_plot =='SE_O_VM_4', c("branch_length_s2_b2", "branch_length_s2_y1_b2")] <- raw_data[raw_data$DURIN_plot =='SE_O_VM_4' , c("branch_length_s2_y1_b2", "branch_length_s2_b2")] 
+
+raw_data[raw_data$DURIN_plot =='KA_O_VM_3' & raw_data$comment_indiv=='B', c("branch_length_s2_b2", "branch_length_s2_y1_b2")] <- raw_data[raw_data$DURIN_plot =='KA_O_VM_3' & raw_data$comment_indiv=='B', c("branch_length_s2_y1_b2", "branch_length_s2_b2")] 
+
+
+#wrong branch_length_s2_y2_b1.1
+
+raw_data[raw_data$DURIN_plot =='KA_O_VM_3' & raw_data$comment_indiv=='B', c("branch_length_s2_y2_b1.1", "branch_length_s2_y1_b3")] <- raw_data[raw_data$DURIN_plot =='KA_O_VM_3' & raw_data$comment_indiv=='B', c("branch_length_s2_y1_b3", "branch_length_s2_y2_b1.1")] 
+```
+
+To verify that it has worked correctly, use this code: 
+```{r}
+raw_data[c('26','27','28','68','71','72','75','79'),c('DURIN_plot','branch_length_s1_b2','branch_length_s2_b2','branch_length_s2_y2_b1.1','branch_length_s2_y1_b1','branch_length_s2_y1_b2','branch_length_s2_y1_b3')]
+```
+The data were moved correctly. 
+
+```{r}
+raw_data[raw_data$alive_leaf_count_s2_y2_b1 != 0,]
+
+```
+
+Here, "a" is used to verify that I won't suppress any numeric data.
+```{r}
+a<-colSums(Filter(is.numeric, raw_data))
+a
+class(a)
+a<-a[!is.na(a)]
+a
+a<-sum(a)
+a
+```
+a = 164807.7
+
+We can now suppress the strange columns (see explanations)
+```{r}
+removed_list<-c('alive_leaf_count_s2_b2','dead_leaf_count_s2_b2','alive_leaf_count_s2_y2_b1','dead_leaf_count_s2_y2_b1','leaf_scar_b2_s2','branch_length_s2_y2_b1.1','branch_length_s2_b2')
+raw_data<-raw_data %>% select(-one_of(removed_list))
+```
+
+```{r}
+a<-colSums(Filter(is.numeric, raw_data))
+a
+class(a)
+a<-a[!is.na(a)]
+a
+a<-sum(a)
+a
+```
+a = 164807.7
+Right, I haven't suppressed data. 
+
+Let's rename the colums that refers to branch S1 Y1 B2: 
+```{r}
+names(raw_data)[names(raw_data) == 'alive_leaf_count_s1_b2'] <- 'alive_leaf_count_s1_y1_b2'
+names(raw_data)[names(raw_data) == 'dead_leaf_count_s1_b2'] <- 'dead_leaf_count_s1_y1_b2'
+names(raw_data)[names(raw_data) == 'branch_length_s1_b2'] <- 'branch_length_s1_y1_b2'
+names(raw_data)[names(raw_data) == 'leaf_scar_s1_b2'] <- 'leaf_scar_s1_y1_b2'
 ```
 
 
