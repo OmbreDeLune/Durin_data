@@ -20,7 +20,7 @@ library(fixr)
 
 In order to clean the data, I first import the raw data, a csv document obtain from the original excel document. 
 ```{r}
-raw_data<-read.csv("raw_data.csv")
+raw_data<-read.csv("raw_DURIN_growth_data.csv")
 ```
 
 First, I want to concatenate the date values in a single value. I create a new column for that.
@@ -51,7 +51,18 @@ names(raw_data)[names(raw_data) == 'fruits.or.flowers'] <- 'presence_reproductiv
 names(raw_data)[names(raw_data) == 'reproductive.stem'] <- 'presence_reproductive_stem'
 names(raw_data)[names(raw_data) == 'X._branches_s1'] <- 'nbr_sidebranch_s1'
 names(raw_data)[names(raw_data) == 'X._branches_s2'] <- 'nbr_sidebranch_s2'
+names(raw_data)[names(raw_data) == 'fruits_s1_y1_b1'] <- 'fruit_count_s1_y1_b1'
+names(raw_data)[names(raw_data) == 'fruit_s1_y1_b1'] <- 'fruit_mass_s1_y1_b1'
+names(raw_data)[names(raw_data) == 'dead_leaves_s2_y2_b1'] <- 'dead_leaves_mass_s2_y2_b1'
+
 ```
+
+I have to add a comment for SO_F_VV_2 as we have a bubble comment about it on the original excel. This comment is on the S2 Y2 B1 dead leaf and says that it is already gone and the remaining peduncle is taken for biomass. As we don't have dead leaf biomass for this sample, we can assume that the dead leaf mentioned is an error, and we suppress it. There should be an alone peduncle in the S2 Y2 B1 leaves though. 
+```{r}
+raw_data['2',"general_comment"]<-"S2 Y2 B1: 1 lost leaf but with peduncle on the stem, taken for leaves biomass"
+raw_data['2','dead_leaf_count_s2_b1']<-0
+```
+
 
 I identify the class of every column. 
 ```{r}
@@ -71,7 +82,10 @@ raw_data$plant_height[raw_data$plant_height=='missing']<-NA
 ```
 We still have to correct the character columns that have numerics somewhere, but I won't do it now. 
 
-
+```{r}
+raw_data$plant_height<-as.numeric(raw_data$plant_height)
+class(raw_data$plant_height)
+```
 
 
 I now need to distinct between two samples that were called the same way but with two detached individuals, that were called "individual A" and "individual B" in the raw data. I identify the duplicated rows according to the plotID in order to distinct individuals. 
@@ -81,7 +95,7 @@ I suppress every example of duplicated row that has no measure, as it is just an
 ```{r}
 raw_data <- raw_data[!is.na(raw_data$length_longest_branch_cm), ]
 ```
-I end up with 76 samples measured, which is coherent as I have 4 samples with 2 individuals, and 1 sample with 3 individuals : 
+I end up with 76 samples measured, which is coherent as I have 70 different IDs, 4 samples with 2 individuals, and 1 sample with 3 individuals : 
 ```{r}
 raw_data[duplicated(raw_data$DURIN_plot), ]
 ```
@@ -105,11 +119,14 @@ raw_data['105','comment_indiv']<-'C'
 
 Now I remove columns that  are not data but information about processing. 
 ```{r}
-removed_list<-c("ageClass", "DroughtTrt", "DroughNet_plotID", "photoID_N", "photoID_W", "general_comment", "Chopping.technician", "time.spent.on.chopping","weighing.date","Mass.technician","weighing.time", "balance", "REMAINING.BRANCH.PROCESSING......", "Chopping.technician.1", "time.spent.on.chopping.1","weighing.date.1", "Mass.technician.1", "weighing.time.1", "Which.balance")
+#previously removed, but finally kept : 
+#"photoID_N", "photoID_W", "general_comment", "Chopping.technician", "time.spent.on.chopping","weighing.date","Mass.technician","weighing.time", "balance","Chopping.technician.1", "time.spent.on.chopping.1","weighing.date.1", "Mass.technician.1", "weighing.time.1", "Which.balance"
+removed_list<-c("ageClass", "DroughtTrt", "DroughNet_plotID",  "REMAINING.BRANCH.PROCESSING......","day","month")
 raw_data<-raw_data %>% select(-one_of(removed_list))
 ```
+Maybe I should remove the "Comment_smaller_branches" column too.
 
-Now, I work on other columns that are strange. Their names are ambiguous or redundant, and are the result of misunderstanding between lab workers. As errors, we have sometime written data in those columns  instead of writting it in the right ones. We first correct these errors (see explanations in the google excel), and then suppress them.
+Now, I work on other columns that are strange. Their names are ambiguous or redundant, and are the result of misunderstanding between lab workers. As errors, we have sometime written data in those columns  instead of writting them in the right ones. We first correct these errors (see explanations in the google excel), and then suppress them.
 
 First, searching where are the errors.
 ```{r}
@@ -150,18 +167,12 @@ raw_data[c('26','27','28','68','71','72','75','79'),c('DURIN_plot','branch_lengt
 ```
 The data were moved correctly. 
 
-```{r}
-raw_data[raw_data$alive_leaf_count_s2_y2_b1 != 0,]
 
-```
 
 Here, "a" is used to verify that I won't suppress any numeric data.
 ```{r}
 a<-colSums(Filter(is.numeric, raw_data))
-a
-class(a)
 a<-a[!is.na(a)]
-a
 a<-sum(a)
 a
 ```
@@ -173,19 +184,24 @@ removed_list<-c('alive_leaf_count_s2_b2','dead_leaf_count_s2_b2','alive_leaf_cou
 raw_data<-raw_data %>% select(-one_of(removed_list))
 ```
 
+We also suppress the flower_mass, fruit_mass and reproductive_part_mass that are totally empty. The data were registered in more specified columns. 
+Idem for the dead leaves for S2 Y1 branches that are empty
+```{r}
+removed_list<-c('flower_mass',"fruit_mass","reproductive_part_mass","dead_leaf_count_s2_y1_b1","dead_leaf_count_s2_y1_b2","dead_leaf_count_s2_y1_b3","dead_leaf_count_s2_y1_b4")
+raw_data<-raw_data %>% select(-one_of(removed_list))
+```
+
 ```{r}
 a<-colSums(Filter(is.numeric, raw_data))
-a
-class(a)
 a<-a[!is.na(a)]
-a
 a<-sum(a)
 a
 ```
 a = 164807.7
 Right, I haven't suppressed data. 
+HAVE A LOOK on tidyvers which do the same and more usefull. 
 
-Let's rename the colums that refers to branch S1 Y1 B2: 
+Let's rename correctly the columns that refers to branch S1 Y1 B2: 
 ```{r}
 names(raw_data)[names(raw_data) == 'alive_leaf_count_s1_b2'] <- 'alive_leaf_count_s1_y1_b2'
 names(raw_data)[names(raw_data) == 'dead_leaf_count_s1_b2'] <- 'dead_leaf_count_s1_y1_b2'
@@ -193,5 +209,21 @@ names(raw_data)[names(raw_data) == 'branch_length_s1_b2'] <- 'branch_length_s1_y
 names(raw_data)[names(raw_data) == 'leaf_scar_s1_b2'] <- 'leaf_scar_s1_y1_b2'
 ```
 
+Same for the columns that register data from S2 Y2 B1 and with an ambiguous name. 
+```{r}
+names(raw_data)[names(raw_data) == 'alive_leaf_count_s2_b1'] <- 'alive_leaf_count_s2_y2_b1'
+names(raw_data)[names(raw_data) == 'dead_leaf_count_s2_b1'] <- 'dead_leaf_count_s2_y2_b1'
+```
 
+The data are not totally cleaned, but because I don't have a lot of time, I now work on what I need for my internship. 
+
+```{r}
+half_cleaned_data<-raw_data
+```
+
+
+saving the data frame as a csv document.
+```{r}
+write.csv(growth_data, "C:\\Users\\ombre\\Desktop\\half_cleaned_data.csv", row.names=FALSE)
+```
 
