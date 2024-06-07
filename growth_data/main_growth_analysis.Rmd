@@ -23,95 +23,11 @@ raw_data<-read.csv('half_cleaned_DURIN_data.csv')
 ```
 
 
-For this dataframe, I need every data that refers to the main growth. 
+For this dataframe, I need every data that refers to the main growth and total biomass.
 
 First, I create a data frame with every columns except the remaining stuff: 
 ```{r}
-raw_growth_data<-raw_data[,1:72]
-```
-
-Now I want to sort the data by stem, in this order: 
-alive_leaf_count / alive_leaf_mass / dead_leaf_count / dead_leaf_mass /  fruits count / reproductive_mass / leaf_scars / branch_length / branch_mass
-
-
-
-I use this function: 
-```{r}
-arrange.vars <- function(data, vars){
-    ##stop if not a data.frame (but should work for matrices as well)
-    stopifnot(is.data.frame(data))
-
-    ##sort out inputs
-    data.nms <- names(data)
-    var.nr <- length(data.nms)
-    var.nms <- names(vars)
-    var.pos <- vars
-    ##sanity checks
-    stopifnot( !any(duplicated(var.nms)), 
-               !any(duplicated(var.pos)) )
-    stopifnot( is.character(var.nms), 
-               is.numeric(var.pos) )
-    stopifnot( all(var.nms %in% data.nms) )
-    stopifnot( all(var.pos > 0), 
-               all(var.pos <= var.nr) )
-
-    ##prepare output
-    out.vec <- character(var.nr)
-    out.vec[var.pos] <- var.nms
-    out.vec[-var.pos] <- data.nms[ !(data.nms %in% var.nms) ]
-    stopifnot( length(out.vec)==var.nr )
-
-    ##re-arrange vars by position
-    data <- data[ , out.vec]
-    return(data)
-}
-```
-
-Trying the function: 
-```{r}
-#s1_y1_b1
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_mass_s1_y1_b1"=25))
-raw_growth_data<-arrange.vars(raw_growth_data,c("detached_leaf_y1"=26))
-raw_growth_data<-arrange.vars(raw_growth_data,c("fruit_mass_s1_y1_b1"=29))
-raw_growth_data<-arrange.vars(raw_growth_data,c("s1_reproductive_part"=30))
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_scar_s1_y1_b1"=31))
-raw_growth_data<-arrange.vars(raw_growth_data,c("branch_length_s1_y1_b1"=32))
-raw_growth_data<-arrange.vars(raw_growth_data,c("stem_mass_s1_y1_b1"=33))
-
-
-#s2_y2_b1
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_mass_s2_y2_b1"=36))
-raw_growth_data<-arrange.vars(raw_growth_data,c("dead_leaves_mass_s2_y2_b1"=37))
-raw_growth_data<-arrange.vars(raw_growth_data,c("fruits_s2_y2_b1"=38))
-raw_growth_data<-arrange.vars(raw_growth_data,c("s2_reproductive_part"=39))
-raw_growth_data<-arrange.vars(raw_growth_data,c("s2_flowers"=40))
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_scar_s2_y2_b1"=41))
-raw_growth_data<-arrange.vars(raw_growth_data,c("branch_length_s2_y2_b1"=42))
-raw_growth_data<-arrange.vars(raw_growth_data,c("stem_mass_s2_y2_b1"=43))
-
-
-#side_branches 
-raw_growth_data<-arrange.vars(raw_growth_data,c("alive_leaf_count_s2_y1_b1"=44))
-raw_growth_data<-arrange.vars(raw_growth_data,c("alive_leaf_count_s2_y1_b2"=45))
-raw_growth_data<-arrange.vars(raw_growth_data,c("alive_leaf_count_s2_y1_b3"=46))
-raw_growth_data<-arrange.vars(raw_growth_data,c("alive_leaf_count_s2_y1_b4"=47))
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_mass_s2_y1_side_branches"=48))
-raw_growth_data<-arrange.vars(raw_growth_data,c("fruits_s2_y1_b4"=52))
-raw_growth_data<-arrange.vars(raw_growth_data,c("fruit_s2_y1_b1"=53))
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_scar_s2_y1_b1"=54))
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_scar_s2_y1_b2"=55))
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_scar_s2_y1_b3"=56))
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_scar_s2_y1_b4"=57))
-raw_growth_data<-arrange.vars(raw_growth_data,c("branch_length_s2_y1_b1"=58))
-raw_growth_data<-arrange.vars(raw_growth_data,c("branch_length_s2_y1_b2"=59))
-raw_growth_data<-arrange.vars(raw_growth_data,c("branch_length_s2_y1_b3"=60))
-raw_growth_data<-arrange.vars(raw_growth_data,c("branch_length_s2_y1_b4"=61))
-raw_growth_data<-arrange.vars(raw_growth_data,c("stem_mass_s2_y1_side_branches"=62))
-
-
-#additional
-raw_growth_data<-arrange.vars(raw_growth_data,c("leaf_mass_s1_y1_b2"=65))
-raw_growth_data<-arrange.vars(raw_growth_data,c("stem_mass_s1_y1_b2"=69))
+raw_growth_data<-raw_data[,c(1:67,141:150)]
 ```
 
 
@@ -119,13 +35,27 @@ raw_growth_data<-arrange.vars(raw_growth_data,c("stem_mass_s1_y1_b2"=69))
 For my analysis, I won't need these columns:
 ```{r}
 useless_cols<-c("year","date","project","plant_height","photoID_N","photoID_W","general_comment","comment_reproductive_stem")
-raw_growth_data<-raw_growth_data%>% select(-one_of(useless_cols))
+raw_growth_data<-raw_growth_data %>% select(-one_of(useless_cols))
 ```
 For the first analyse, I won't need these columns neither: 
 ```{r}
-useless_cols<-c("nbr_sidebranch_s1","nbr_sidebranch_s2","nrb_branches_lger_5mm","nrb_brk_branches_lger_5mm","nrb_brk_branches_shtr_5mm","length_longest_branch_cm","number_segments","presence_reproductive_str","presence_reproductive_stem")
+useless_cols<-c("nbr_sidebranch_s1","nbr_sidebranch_s2","nbr_branches_lger_5mm","nbr_brk_branches_lger_5mm","nbr_brk_branches_shtr_5mm","length_longest_branch_cm","number_segments","presence_reproductive_str","presence_reproductive_stem")
 raw_growth_data<-raw_growth_data%>% select(-one_of(useless_cols))
 ```
+
+#reorder columns
+Now I want to sort the data by stem, in this order: 
+alive_leaf_count / alive_leaf_mass / dead_leaf_count / dead_leaf_mass /  fruits count / reproductive_mass / leaf_scars / branch_length / branch_mass
+
+
+
+```{r}
+col_order<-c("siteID","species","habitat","plotNR","DURIN_plot","comment_indiv","alive_leaf_count_s1_y1_b1","dead_leaf_count_s1_y1_b1","leaf_mass_s1_y1_b1","fruit_count_s1_y1_b1","reproductive_mass_s1_y1_b1","leaf_scar_s1_y1_b1","branch_length_s1_y1_b1","stem_mass_s1_y1_b1","alive_leaf_count_s2_y2_b1","leaf_mass_s2_y2_b1","dead_leaf_count_s2_y2_b1","dead_leaves_mass_s2_y2_b1","fruits_s2_y2_b1","reproductive_mass_s2_y2_b1","leaf_scar_s2_y2_b1","branch_length_s2_y2_b1","stem_mass_s2_y2_b1","alive_leaf_count_s2_y1_b1","alive_leaf_count_s2_y1_b2","alive_leaf_count_s2_y1_b3","alive_leaf_count_s2_y1_b4","leaf_mass_s2_y1_side_branches","fruits_s2_y1_b1","fruits_s2_y1_b2","fruits_s2_y1_b3","fruits_s2_y1_b4","fruit_mass_s2_y1_side_branches","leaf_scar_s2_y1_b1","leaf_scar_s2_y1_b2","leaf_scar_s2_y1_b3","leaf_scar_s2_y1_b4","branch_length_s2_y1_b1","branch_length_s2_y1_b2","branch_length_s2_y1_b3","branch_length_s2_y1_b4","stem_mass_s2_y1_side_branches","alive_leaf_count_s1_y1_b2","dead_leaf_count_s1_y1_b2","leaf_mass_s1_y1_b2","fruits_s1_y1_b2","leaf_scar_s1_y1_b2","branch_length_s1_y1_b2","stem_mass_s1_y1_b2")
+col_names<-colnames(raw_growth_data)
+other_col<-col_names[!(col_names %in% col_order)]
+raw_growth_data<-select(raw_growth_data, c(col_order,other_col))
+```
+
 
 changing the species and sites for more clarity:
 ```{r}
@@ -138,49 +68,11 @@ raw_growth_data[raw_growth_data=="Lygra"]<-'LY'
 raw_growth_data[raw_growth_data=="Kautokeino"]<-'KA'
 ```
 
-The column "detached_leaf" is useless too. It has 1 mass value, a detached_leaf from a VM sample, then it is sure to be part of the S1 Y1 B1 segment. I add it to the leaf_mass_s1_y1_b1 segment. 
-```{r}
-raw_growth_data$detached_leaf_y1 <- raw_growth_data$detached_leaf_y1 %>% replace(is.na(.), 0)
-raw_growth_data$leaf_mass_s1_y1_b1<-raw_growth_data$detached_leaf_y1+raw_growth_data$leaf_mass_s1_y1_b1
-raw_growth_data<-raw_growth_data%>% select(-detached_leaf_y1)
-```
-
-Idem for the reproductives structures for the different segments. 
-```{r}
-raw_growth_data$s1_reproductive_part <- raw_growth_data$s1_reproductive_part %>% replace(is.na(.), 0)
-raw_growth_data$fruit_mass_s1_y1_b1<-raw_growth_data$s1_reproductive_part+raw_growth_data$fruit_mass_s1_y1_b1
-raw_growth_data<-raw_growth_data%>% select(-s1_reproductive_part)
-names(raw_growth_data)[names(raw_growth_data) == 'fruit_mass_s1_y1_b1'] <- 'reproductive_mass_s1_y1_b1'
-```
-
-Same for s2 y2 b1
-```{r}
-raw_growth_data$s2_flowers <- raw_growth_data$s2_flowers %>% replace(is.na(.), 0)
-raw_growth_data$s2_reproductive_part<-raw_growth_data$s2_reproductive_part+raw_growth_data$s2_flowers
-raw_growth_data<-raw_growth_data%>% select(-s2_flowers)
-names(raw_growth_data)[names(raw_growth_data) == 's2_reproductive_part'] <- 'reproductive_mass_s2_y2_b1'
-```
-
-Same for the only value in S2 Y1 sb1, which concerns a sample with other side branches. I add these values to the other side branches. 
-```{r}
-#Leaves
-raw_growth_data$leaf_s2_y1_sb1 <- raw_growth_data$leaf_s2_y1_sb1 %>% replace(is.na(.), 0)
-raw_growth_data$leaf_mass_s2_y1_side_branches<-raw_growth_data$leaf_mass_s2_y1_side_branches+raw_growth_data$leaf_s2_y1_sb1
-raw_growth_data<-raw_growth_data%>% select(-leaf_s2_y1_sb1)
-
-#Stem
-raw_growth_data$stem_s2_y1_sb1 <- raw_growth_data$stem_s2_y1_sb1 %>% replace(is.na(.), 0)
-raw_growth_data$stem_mass_s2_y1_side_branches<-raw_growth_data$stem_mass_s2_y1_side_branches+raw_growth_data$stem_s2_y1_sb1
-raw_growth_data<-raw_growth_data%>% select(-stem_s2_y1_sb1)
-
-```
-
-
 
 #subseting the dataframe for biomass analysis
-I just want to keep the mass columns. I don't want to keep the only S1 Y1 B2 stem as I will add it later on. 
+I just want to keep the mass columns. I don't want to keep the only S1 Y1 B2 stem as I will add it later on. I don't want dead biomass neither for now. 
 ```{r}
-growth_wide<-raw_growth_data[,c(1:6,9,11,14,17,20,23,28,33,42)]
+growth_wide<-raw_growth_data[,c("siteID","species","habitat","plotNR","DURIN_plot","comment_indiv","leaf_mass_s1_y1_b1","reproductive_mass_s1_y1_b1","stem_mass_s1_y1_b1","leaf_mass_s2_y2_b1","reproductive_mass_s2_y2_b1","stem_mass_s2_y2_b1","leaf_mass_s2_y1_side_branches","fruit_mass_s2_y1_side_branches","stem_mass_s2_y1_side_branches","total_main_repro_biomass","total_remain_repro_biomass","total_repro_biomass","total_main_vegetative_biomass","total_remain_vegetative_biomass","total_vegetative_biomass","total_alive_biomass","total_biomass")]
 ```
 we ends with a wide dataset. 
 
@@ -196,17 +88,17 @@ for (i in c(1:nrow(growth_wide))){
   sampleID<-c(growth_wide[i,1:6])
   #S1 Y1 B1
   stemID<-c("S1_Y1_B1")
-  stemdata<-c(growth_wide[i,7:9])
+  stemdata<-c(growth_wide[i,c("leaf_mass_s1_y1_b1","reproductive_mass_s1_y1_b1","stem_mass_s1_y1_b1")])
   growth_halfwide[nrow(growth_halfwide)+1,]=c(sampleID,stemID,stemdata)
   
   #S2 Y2 B1
   stemID<-c("S2_Y2_B1")
-  stemdata<-c(growth_wide[i,10:12])
+  stemdata<-c(growth_wide[i,c("leaf_mass_s2_y2_b1","reproductive_mass_s2_y2_b1","stem_mass_s2_y2_b1")])
   growth_halfwide[nrow(growth_halfwide)+1,]=c(sampleID,stemID,stemdata)
   
   #S2 Y1 B
   stemID<-c("S2_Y1_B")
-  stemdata<-c(growth_wide[i,13:15])
+  stemdata<-c(growth_wide[i,c("leaf_mass_s2_y1_side_branches","fruit_mass_s2_y1_side_branches","stem_mass_s2_y1_side_branches")])
   growth_halfwide[nrow(growth_halfwide)+1,]=c(sampleID,stemID,stemdata)
   
 }
@@ -220,7 +112,7 @@ s1y1b2row <- s1y1b2row[!is.na(s1y1b2row$siteID), ]
 
 sampleID<-c(s1y1b2row[1,1:6])
 stemID<-c("S1_Y1_B2")
-stemdata<-c(s1y1b2row[1,45],NA,s1y1b2row[1,49])
+stemdata<-c(s1y1b2row[1,"leaf_mass_s1_y1_b2"],NA,s1y1b2row[1,"stem_mass_s1_y1_b2"])
 growth_halfwide[nrow(growth_halfwide)+1,]=c(sampleID,stemID,stemdata)
 ```
 
@@ -230,4 +122,6 @@ growth_halfwide$reproductive_mass<-growth_halfwide$reproductive_mass%>% replace(
 ```
 
 
+
+#Starting analysis
 

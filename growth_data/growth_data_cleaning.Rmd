@@ -44,9 +44,9 @@ Okay, every column name is a character, but some ones are weird. I want to repla
 
 ```{r}
 names(raw_data)[names(raw_data) == 'photo_comment'] <- 'general_comment'
-names(raw_data)[names(raw_data) == 'X..branches.5mm'] <- 'nrb_branches_lger_5mm'
-names(raw_data)[names(raw_data) == 'X..broken_branches.5mm'] <- 'nrb_brk_branches_lger_5mm'
-names(raw_data)[names(raw_data) == 'X..broken_branches.5mm.1'] <- 'nrb_brk_branches_shtr_5mm'
+names(raw_data)[names(raw_data) == 'X..branches.5mm'] <- 'nbr_branches_lger_5mm'
+names(raw_data)[names(raw_data) == 'X..broken_branches.5mm'] <- 'nbr_brk_branches_lger_5mm'
+names(raw_data)[names(raw_data) == 'X..broken_branches.5mm.1'] <- 'nbr_brk_branches_shtr_5mm'
 names(raw_data)[names(raw_data) == 'fruits.or.flowers'] <- 'presence_reproductive_str'
 names(raw_data)[names(raw_data) == 'reproductive.stem'] <- 'presence_reproductive_stem'
 names(raw_data)[names(raw_data) == 'X._branches_s1'] <- 'nbr_sidebranch_s1'
@@ -176,7 +176,6 @@ a<-a[!is.na(a)]
 a<-sum(a)
 a
 ```
-a = 164807.7
 
 We can now suppress the strange columns (see explanations)
 ```{r}
@@ -197,7 +196,6 @@ a<-a[!is.na(a)]
 a<-sum(a)
 a
 ```
-a = 164807.7
 Right, I haven't suppressed data. 
 HAVE A LOOK on tidyvers which do the same and more usefull. 
 
@@ -215,20 +213,26 @@ names(raw_data)[names(raw_data) == 'alive_leaf_count_s2_b1'] <- 'alive_leaf_coun
 names(raw_data)[names(raw_data) == 'dead_leaf_count_s2_b1'] <- 'dead_leaf_count_s2_y2_b1'
 ```
 
+As we didn't have any fruits in S2 Y1 B2, B3 and B4, we can rename the fruit biomass from S2 Y1 B1 as "fruit_mass_s2_y1_side_branches"
+```{r}
+names(raw_data)[names(raw_data) == 'fruit_s2_y1_b1'] <- 'fruit_mass_s2_y1_side_branches'
+```
+
+
 #Merging columns
 In the lab, we have measured everything that should be measured in a plant, adding new columns as we processed samples with new structures. Then, the stems with "reproductive_mass"=NA had no reproductive structures. We can then turn the NAs in 0.
 
 The column "detached_leaf" is useless. It has 1 mass value, a detached_leaf from a VM sample, then it is sure to be part of the S1 Y1 B1 segment. I add it to the leaf_mass_s1_y1_b1 segment. 
 ```{r}
-raw_data$detached_leaf_y1 <- raw_data$detached_leaf_y1 %>% replace(is.na(.), 0)
-raw_data$leaf_mass_s1_y1_b1<-raw_data$detached_leaf_y1+raw_data$leaf_mass_s1_y1_b1
+raw_data$detached_leaf_y1[is.na(raw_data$detached_leaf_y1)]<-0
+raw_data$leaf_mass_s1_y1_b1<-raw_data$leaf_mass_s1_y1_b1+raw_data$detached_leaf_y1
 raw_data<-raw_data%>% select(-detached_leaf_y1)
 ```
 
 Idem for the reproductives structures for the different segments. 
 ```{r}
 raw_data$s1_reproductive_part <- raw_data$s1_reproductive_part %>% replace(is.na(.), 0)
-raw_data$fruit_mass_s1_y1_b1<-raw_data$s1_reproductive_part+raw_data$fruit_mass_s1_y1_b1
+raw_data$fruit_mass_s1_y1_b1<-raw_data$fruit_mass_s1_y1_b1+raw_data$s1_reproductive_part
 raw_data<-raw_data%>% select(-s1_reproductive_part)
 names(raw_data)[names(raw_data) == 'fruit_mass_s1_y1_b1'] <- 'reproductive_mass_s1_y1_b1'
 ```
@@ -263,8 +267,8 @@ total reproductive biomass
 #from main stuff:
 raw_data$reproductive_mass_s1_y1_b1 <- raw_data$reproductive_mass_s1_y1_b1 %>% replace(is.na(.), 0)
 raw_data$reproductive_mass_s2_y2_b1 <- raw_data$reproductive_mass_s2_y2_b1 %>% replace(is.na(.), 0)
-raw_data$fruit_s2_y1_b1 <- raw_data$fruit_s2_y1_b1 %>% replace(is.na(.), 0)
-raw_data$total_main_repro_biomass<-raw_data$reproductive_mass_s1_y1_b1+raw_data$reproductive_mass_s2_y2_b1+raw_data$fruit_s2_y1_b1
+raw_data$fruit_mass_s2_y1_side_branches <- raw_data$fruit_mass_s2_y1_side_branches %>% replace(is.na(.), 0)
+raw_data$total_main_repro_biomass<-raw_data$reproductive_mass_s1_y1_b1+raw_data$reproductive_mass_s2_y2_b1+raw_data$fruit_mass_s2_y1_side_branches
 
 #from remaining stuff:
 raw_data$remainin_.fruit <- raw_data$remainin_.fruit %>% replace(is.na(.), 0)
@@ -359,6 +363,6 @@ half_cleaned_data<-raw_data
 
 saving the data frame as a csv document.
 ```{r}
-write.csv(growth_data, "C:\\Users\\ombre\\Desktop\\half_cleaned_data.csv", row.names=FALSE)
+write.csv(half_cleaned_data, "C:\\Users\\ombre\\Desktop\\half_cleaned_DURIN_data.csv", row.names=FALSE)
 ```
 
