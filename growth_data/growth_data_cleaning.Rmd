@@ -215,7 +215,142 @@ names(raw_data)[names(raw_data) == 'alive_leaf_count_s2_b1'] <- 'alive_leaf_coun
 names(raw_data)[names(raw_data) == 'dead_leaf_count_s2_b1'] <- 'dead_leaf_count_s2_y2_b1'
 ```
 
-The data are not totally cleaned, but because I don't have a lot of time, I now work on what I need for my internship. 
+#Merging columns
+In the lab, we have measured everything that should be measured in a plant, adding new columns as we processed samples with new structures. Then, the stems with "reproductive_mass"=NA had no reproductive structures. We can then turn the NAs in 0.
+
+The column "detached_leaf" is useless. It has 1 mass value, a detached_leaf from a VM sample, then it is sure to be part of the S1 Y1 B1 segment. I add it to the leaf_mass_s1_y1_b1 segment. 
+```{r}
+raw_data$detached_leaf_y1 <- raw_data$detached_leaf_y1 %>% replace(is.na(.), 0)
+raw_data$leaf_mass_s1_y1_b1<-raw_data$detached_leaf_y1+raw_data$leaf_mass_s1_y1_b1
+raw_data<-raw_data%>% select(-detached_leaf_y1)
+```
+
+Idem for the reproductives structures for the different segments. 
+```{r}
+raw_data$s1_reproductive_part <- raw_data$s1_reproductive_part %>% replace(is.na(.), 0)
+raw_data$fruit_mass_s1_y1_b1<-raw_data$s1_reproductive_part+raw_data$fruit_mass_s1_y1_b1
+raw_data<-raw_data%>% select(-s1_reproductive_part)
+names(raw_data)[names(raw_data) == 'fruit_mass_s1_y1_b1'] <- 'reproductive_mass_s1_y1_b1'
+```
+
+Same for s2 y2 b1
+```{r}
+raw_data$s2_flowers <- raw_data$s2_flowers %>% replace(is.na(.), 0)
+raw_data$s2_reproductive_part<-raw_data$s2_reproductive_part+raw_data$s2_flowers
+raw_data<-raw_data%>% select(-s2_flowers)
+names(raw_data)[names(raw_data) == 's2_reproductive_part'] <- 'reproductive_mass_s2_y2_b1'
+```
+
+Same for the only value in S2 Y1 sb1, which concerns a sample with other side branches. I add these values to the other side branches. 
+```{r}
+#Leaves
+raw_data$leaf_s2_y1_sb1 <- raw_data$leaf_s2_y1_sb1 %>% replace(is.na(.), 0)
+raw_data$leaf_mass_s2_y1_side_branches<-raw_data$leaf_mass_s2_y1_side_branches+raw_data$leaf_s2_y1_sb1
+raw_data<-raw_data%>% select(-leaf_s2_y1_sb1)
+
+#Stem
+raw_data$stem_s2_y1_sb1 <- raw_data$stem_s2_y1_sb1 %>% replace(is.na(.), 0)
+raw_data$stem_mass_s2_y1_side_branches<-raw_data$stem_mass_s2_y1_side_branches+raw_data$stem_s2_y1_sb1
+raw_data<-raw_data%>% select(-stem_s2_y1_sb1)
+
+```
+
+
+#Total biomass calculation
+
+total reproductive biomass
+```{r}
+#from main stuff:
+raw_data$reproductive_mass_s1_y1_b1 <- raw_data$reproductive_mass_s1_y1_b1 %>% replace(is.na(.), 0)
+raw_data$reproductive_mass_s2_y2_b1 <- raw_data$reproductive_mass_s2_y2_b1 %>% replace(is.na(.), 0)
+raw_data$fruit_s2_y1_b1 <- raw_data$fruit_s2_y1_b1 %>% replace(is.na(.), 0)
+raw_data$total_main_repro_biomass<-raw_data$reproductive_mass_s1_y1_b1+raw_data$reproductive_mass_s2_y2_b1+raw_data$fruit_s2_y1_b1
+
+#from remaining stuff:
+raw_data$remainin_.fruit <- raw_data$remainin_.fruit %>% replace(is.na(.), 0)
+raw_data$s3_reproductive_structure <- raw_data$s3_reproductive_structure %>% replace(is.na(.), 0)
+raw_data$s2_y2_b1_reproductive_structure <- raw_data$s2_y2_b1_reproductive_structure %>% replace(is.na(.), 0)
+raw_data$total_remain_repro_biomass<-raw_data$remainin_.fruit+raw_data$s3_reproductive_structure+raw_data$s2_y2_b1_reproductive_structure
+
+#Summing main and remain:
+raw_data$total_repro_biomass<-raw_data$total_remain_repro_biomass+raw_data$total_main_repro_biomass
+```
+
+for alive vegetative biomass: this includes every leaf and every stem that is alive. 
+I consider the broken stem from the remaining stuff not dead stuff. 
+```{r}
+#for main biomass: 
+##NA replacing
+raw_data$leaf_mass_s1_y1_b1 <- raw_data$leaf_mass_s1_y1_b1 %>% replace(is.na(.), 0)
+raw_data$leaf_mass_s1_y1_b2 <- raw_data$leaf_mass_s1_y1_b2 %>% replace(is.na(.), 0)
+raw_data$leaf_mass_s2_y1_side_branches <- raw_data$leaf_mass_s2_y1_side_branches %>% replace(is.na(.), 0)
+raw_data$leaf_mass_s2_y2_b1 <- raw_data$leaf_mass_s2_y2_b1 %>% replace(is.na(.), 0)
+raw_data$stem_mass_s1_y1_b1 <- raw_data$stem_mass_s1_y1_b1 %>% replace(is.na(.), 0)
+raw_data$stem_mass_s1_y1_b2 <- raw_data$stem_mass_s1_y1_b2 %>% replace(is.na(.), 0)
+raw_data$stem_mass_s2_y1_side_branches <- raw_data$stem_mass_s2_y1_side_branches %>% replace(is.na(.), 0)
+raw_data$stem_mass_s2_y2_b1 <- raw_data$stem_mass_s2_y2_b1 %>% replace(is.na(.), 0)
+##sum
+raw_data$total_main_vegetative_biomass<-raw_data$leaf_mass_s1_y1_b1+raw_data$leaf_mass_s1_y1_b2+raw_data$leaf_mass_s2_y1_side_branches+raw_data$leaf_mass_s2_y2_b1+raw_data$stem_mass_s1_y1_b1+raw_data$stem_mass_s1_y1_b2+raw_data$stem_mass_s2_y1_side_branches+raw_data$stem_mass_s2_y2_b1
+
+#for remaining biomass:
+##NA replacing:
+raw_data$leaf_mass_s1_y1_total_remain <- raw_data$leaf_mass_s1_y1_total_remain %>% replace(is.na(.), 0)
+raw_data$stem_mass_s1_y1_total_remain <- raw_data$stem_mass_s1_y1_total_remain %>% replace(is.na(.), 0)
+
+raw_data$leaf_mass_s2_y2_total_remain <- raw_data$leaf_mass_s2_y2_total_remain %>% replace(is.na(.), 0)
+raw_data$stem_mass_s2_y2_total_remain <- raw_data$stem_mass_s2_y2_total_remain %>% replace(is.na(.), 0)
+
+raw_data$leaf_mass_s2_y1_total_remain <- raw_data$leaf_mass_s2_y1_total_remain %>% replace(is.na(.), 0)
+raw_data$stem_mass_s2_y1_total_remain <- raw_data$stem_mass_s2_y1_total_remain %>% replace(is.na(.), 0)
+
+raw_data$leaf_mass_s3_y3_total_remain <- raw_data$leaf_mass_s3_y3_total_remain %>% replace(is.na(.), 0)
+raw_data$stem_mass_s3_y3_total_remain <- raw_data$stem_mass_s3_y3_total_remain %>% replace(is.na(.), 0)
+
+raw_data$leaf_mass_s4_y4_total_remain <- raw_data$leaf_mass_s4_y4_total_remain %>% replace(is.na(.), 0)
+raw_data$stem_mass_s4_y4_total_remain <- raw_data$stem_mass_s4_y4_total_remain %>% replace(is.na(.), 0)
+
+raw_data$stem_mass_s5_y5_total_remain <- raw_data$stem_mass_s5_y5_total_remain %>% replace(is.na(.), 0)
+raw_data$stem_mass_s6_y6_total_remain <- raw_data$stem_mass_s6_y6_total_remain %>% replace(is.na(.), 0)
+
+raw_data$remain_stem_mass <- raw_data$remain_stem_mass %>% replace(is.na(.), 0)
+raw_data$broken_stems <- raw_data$broken_stems %>% replace(is.na(.), 0)
+raw_data$lost_leaf_mass <- raw_data$lost_leaf_mass %>% replace(is.na(.), 0)
+
+#sum
+raw_data$total_remain_vegetative_biomass<-raw_data$leaf_mass_s1_y1_total_remain+raw_data$stem_mass_s1_y1_total_remain+raw_data$leaf_mass_s2_y2_total_remain+raw_data$stem_mass_s2_y2_total_remain+raw_data$leaf_mass_s2_y1_total_remain+raw_data$stem_mass_s2_y1_total_remain+raw_data$leaf_mass_s3_y3_total_remain+raw_data$stem_mass_s3_y3_total_remain+raw_data$leaf_mass_s4_y4_total_remain+raw_data$stem_mass_s4_y4_total_remain+raw_data$stem_mass_s5_y5_total_remain+raw_data$stem_mass_s6_y6_total_remain+raw_data$remain_stem_mass+raw_data$broken_stems+raw_data$lost_leaf_mass
+
+#Summing main and remain:
+raw_data$total_vegetative_biomass<-raw_data$total_main_vegetative_biomass+raw_data$total_remain_vegetative_biomass
+```
+
+Now summing the total alive biomass: 
+```{r}
+raw_data$total_alive_biomass<-raw_data$total_repro_biomass+raw_data$total_vegetative_biomass
+```
+
+
+For dead biomass: 
+```{r}
+#main biomass: already in column dead_leaves_mass_s2_y2_b1
+
+#remain biomass:
+raw_data$dead_leaves <- raw_data$dead_leaves %>% replace(is.na(.), 0)
+raw_data$dead_stem <- raw_data$dead_stem %>% replace(is.na(.), 0)
+
+raw_data$total_remain_dead_biomass<-raw_data$dead_leaves+raw_data$dead_stem
+
+#total dead biomass:
+raw_data$dead_leaves_mass_s2_y2_b1 <- raw_data$dead_leaves_mass_s2_y2_b1 %>% replace(is.na(.), 0)
+
+raw_data$total_dead_biomass<-raw_data$dead_leaves_mass_s2_y2_b1+raw_data$total_remain_dead_biomass
+```
+
+```{r}
+#total biomass: 
+raw_data$total_biomass<-raw_data$total_alive_biomass+raw_data$total_dead_biomass
+```
+
+
 
 ```{r}
 half_cleaned_data<-raw_data
