@@ -31,11 +31,11 @@ raw_growth_data<-raw_data[,1:72]
 ```
 
 Now I want to sort the data by stem, in this order: 
-alive_leaf_count / alive_leaf_mass / dead_leaf_count /  fruits / leaf_scars / branch_length / branch_mass
+alive_leaf_count / alive_leaf_mass / dead_leaf_count / dead_leaf_mass /  fruits count / reproductive_mass / leaf_scars / branch_length / branch_mass
 
 
 
-I use this function found on internet: 
+I use this function: 
 ```{r}
 arrange.vars <- function(data, vars){
     ##stop if not a data.frame (but should work for matrices as well)
@@ -161,6 +161,73 @@ raw_growth_data<-raw_growth_data%>% select(-s2_flowers)
 names(raw_growth_data)[names(raw_growth_data) == 's2_reproductive_part'] <- 'reproductive_mass_s2_y2_b1'
 ```
 
+Same for the only value in S2 Y1 sb1, which concerns a sample with other side branches. I add these values to the other side branches. 
+```{r}
+#Leaves
+raw_growth_data$leaf_s2_y1_sb1 <- raw_growth_data$leaf_s2_y1_sb1 %>% replace(is.na(.), 0)
+raw_growth_data$leaf_mass_s2_y1_side_branches<-raw_growth_data$leaf_mass_s2_y1_side_branches+raw_growth_data$leaf_s2_y1_sb1
+raw_growth_data<-raw_growth_data%>% select(-leaf_s2_y1_sb1)
+
+#Stem
+raw_growth_data$stem_s2_y1_sb1 <- raw_growth_data$stem_s2_y1_sb1 %>% replace(is.na(.), 0)
+raw_growth_data$stem_mass_s2_y1_side_branches<-raw_growth_data$stem_mass_s2_y1_side_branches+raw_growth_data$stem_s2_y1_sb1
+raw_growth_data<-raw_growth_data%>% select(-stem_s2_y1_sb1)
+
+```
+
+
+
+#subseting the dataframe for biomass analysis
+I just want to keep the mass columns. I don't want to keep the only S1 Y1 B2 stem as I will add it later on. 
+```{r}
+growth_wide<-raw_growth_data[,c(1:6,9,11,14,17,20,23,28,33,42)]
+```
+we ends with a wide dataset. 
+
+#splitting data depending on the stem
+I want to rearrange the data set in a data frame with different rows for different stems of the same sample.
+```{r}
+growth_halfwide <- data.frame(matrix(ncol = 10, nrow = 0))
+colnames(growth_halfwide)<-c("siteID","species","habitat","plotNR","DURIN_plot","comment_indiv","stemID","alive_leaf_mass","reproductive_mass","stem_mass")
+```
+Now I complete the data frame with data. 
+```{r}
+for (i in c(1:nrow(growth_wide))){
+  sampleID<-c(growth_wide[i,1:6])
+  #S1 Y1 B1
+  stemID<-c("S1_Y1_B1")
+  stemdata<-c(growth_wide[i,7:9])
+  growth_halfwide[nrow(growth_halfwide)+1,]=c(sampleID,stemID,stemdata)
+  
+  #S2 Y2 B1
+  stemID<-c("S2_Y2_B1")
+  stemdata<-c(growth_wide[i,10:12])
+  growth_halfwide[nrow(growth_halfwide)+1,]=c(sampleID,stemID,stemdata)
+  
+  #S2 Y1 B
+  stemID<-c("S2_Y1_B")
+  stemdata<-c(growth_wide[i,13:15])
+  growth_halfwide[nrow(growth_halfwide)+1,]=c(sampleID,stemID,stemdata)
+  
+}
+```
+
+manually adding the S1 Y1 B2 : 
+```{r}
+#S1Y1B2
+s1y1b2row<-raw_growth_data[raw_growth_data$stem_mass_s1_y1_b2!=0,]
+s1y1b2row <- s1y1b2row[!is.na(s1y1b2row$siteID), ]
+
+sampleID<-c(s1y1b2row[1,1:6])
+stemID<-c("S1_Y1_B2")
+stemdata<-c(s1y1b2row[1,45],NA,s1y1b2row[1,49])
+growth_halfwide[nrow(growth_halfwide)+1,]=c(sampleID,stemID,stemdata)
+```
+
+In the lab, we have measured everything that should be measured in a plant, adding new columns as we processed samples with new structures. Then, the stems with "reproductive_mass"=NA had no reproductive structures. We can turn the NAs in 0 for the analysis.
+```{r}
+growth_halfwide$reproductive_mass<-growth_halfwide$reproductive_mass%>% replace(is.na(.), 0)
+```
 
 
 
