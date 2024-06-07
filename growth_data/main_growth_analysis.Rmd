@@ -13,6 +13,9 @@ library(dplyr)
 library(lubridate)
 library(zoo)
 library(fixr)
+library(ggplot2)
+library(ggthemes)
+library(ggpattern)
 ```
 
 
@@ -119,9 +122,22 @@ growth_halfwide[nrow(growth_halfwide)+1,]=c(sampleID,stemID,stemdata)
 In the lab, we have measured everything that should be measured in a plant, adding new columns as we processed samples with new structures. Then, the stems with "reproductive_mass"=NA had no reproductive structures. We can turn the NAs in 0 for the analysis.
 ```{r}
 growth_halfwide$reproductive_mass<-growth_halfwide$reproductive_mass%>% replace(is.na(.), 0)
+growth_halfwide$alive_leaf_mass<-growth_halfwide$alive_leaf_mass%>% replace(is.na(.), 0)
+growth_halfwide$stem_mass<-growth_halfwide$stem_mass%>% replace(is.na(.), 0)
 ```
 
 
 
 #Starting analysis
+
+I want to study the leaf/stem ratio. I have to calculate it and add a column for it.
+```{r}
+growth_halfwide$leaf_stem_ratio<-growth_halfwide$alive_leaf_mass/growth_halfwide$stem_mass
+```
+
+visualise this ratio: 
+```{r}
+plot<-ggplot(growth_halfwide[!(growth_halfwide$species=="VM" & growth_halfwide$stemID=="S2_Y2_B1"),], aes(x=stem_mass, y=leaf_stem_ratio, fill=species))+geom_point(aes(colour=species))+facet_grid(siteID~habitat)+theme_few()+ggtitle("leaf/stem biomass ratio")
+plot
+```
 
